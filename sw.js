@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v62-sync-fix';
+const CACHE_NAME = 'fichas-tosquia-v63-overlap-columns';
 const FILES_TO_CACHE = [
   './',
   './index.html',

@@ -368,9 +368,10 @@
   .hour-label{position:absolute;left:-44px;top:-8px;width:38px;font-size:.66rem;color:var(--muted);text-align:right;}
   .timeline-events{position:absolute;top:0;left:44px;right:0;bottom:0;pointer-events:none;}
   .timeline-block{
-    position:absolute;left:0;right:0;background:var(--teal);color:#fff;border-radius:8px;
+    position:absolute;background:var(--teal);color:#fff;border-radius:8px;
     padding:5px 8px;font-size:.76rem;overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,.18);
     pointer-events:auto;cursor:pointer;border-left:3px solid var(--mustard);
+    box-sizing:border-box;
   }
   .timeline-block .t-name{font-weight:700;display:block;padding-right:22px;}
   .timeline-block.done{opacity:.55;}
@@ -3530,6 +3531,48 @@ const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 21;
 const ROW_HEIGHT = 52;
 
+function layoutOverlappingEvents(events){
+  // Agrupa eventos com horários sobrepostos e atribui-lhes colunas lado a lado
+  const sorted = events.slice().sort((a,b) => a.startFrac - b.startFrac || a.endFrac - b.endFrac);
+  let clusters = [];
+  let currentCluster = [];
+  let clusterEnd = -Infinity;
+
+  sorted.forEach(ev => {
+    if(currentCluster.length === 0 || ev.startFrac < clusterEnd){
+      currentCluster.push(ev);
+      clusterEnd = Math.max(clusterEnd, ev.endFrac);
+    } else {
+      clusters.push(currentCluster);
+      currentCluster = [ev];
+      clusterEnd = ev.endFrac;
+    }
+  });
+  if(currentCluster.length) clusters.push(currentCluster);
+
+  clusters.forEach(cluster => {
+    const columnEnds = [];
+    cluster.forEach(ev => {
+      let placed = false;
+      for(let i = 0; i < columnEnds.length; i++){
+        if(columnEnds[i] <= ev.startFrac){
+          columnEnds[i] = ev.endFrac;
+          ev.col = i;
+          placed = true;
+          break;
+        }
+      }
+      if(!placed){
+        ev.col = columnEnds.length;
+        columnEnds.push(ev.endFrac);
+      }
+    });
+    cluster.forEach(ev => { ev.cols = columnEnds.length; });
+  });
+
+  return sorted;
+}
+
 async function renderDayTimelineHtml(items, date){
   const iso = isoDate(date);
   const dayItems = items.filter(i => i.date === iso).sort((a,b)=> a.time.localeCompare(b.time));
@@ -3540,8 +3583,8 @@ async function renderDayTimelineHtml(items, date){
     hoursHtml += `<div class="hour-row" onclick="openQuickAddFromAgenda('${iso}', '${hourStr}')"><span class="hour-label">${hourStr}</span></div>`;
   }
 
-  let eventsHtml = '';
-  dayItems.forEach(item => {
+  // Pré-calcular início/fim de cada marcação para deteção de sobreposição
+  const timedItems = dayItems.map(item => {
     const [hh, mm] = item.time.split(':').map(Number);
     let startFrac = hh + (mm||0)/60;
     startFrac = Math.max(DAY_START_HOUR, Math.min(DAY_END_HOUR, startFrac));
@@ -3552,12 +3595,22 @@ async function renderDayTimelineHtml(items, date){
     if(endFrac <= startFrac) endFrac = startFrac + 1;
     endFrac = Math.max(startFrac + 0.3, Math.min(DAY_END_HOUR + 1, endFrac));
 
+    return { item, startFrac, endFrac, endTimeStr };
+  });
+
+  const laidOut = layoutOverlappingEvents(timedItems);
+
+  let eventsHtml = '';
+  laidOut.forEach(({ item, startFrac, endFrac, endTimeStr, col, cols }) => {
     const top = (startFrac - DAY_START_HOUR) * ROW_HEIGHT;
     const height = Math.max(28, (endFrac - startFrac) * ROW_HEIGHT - 4);
+    const widthPct = 100 / cols;
+    const leftPct = col * widthPct;
+    const posStyle = `top:${top}px;height:${height}px;left:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 4px);`;
 
     if(item.isGoogleEvent){
       eventsHtml += `
-        <div class="timeline-block gcal-block" style="top:${top}px;height:${height}px;" onclick='openConfirmGoogleEventModal(${JSON.stringify(item).replace(/'/g,"&#39;")})'>
+        <div class="timeline-block gcal-block" style="${posStyle}" onclick='openConfirmGoogleEventModal(${JSON.stringify(item).replace(/'/g,"&#39;")})'>
           <span class="t-name">📅 ${escapeHtml(item.nota)}</span>
           <span class="t-sub">${item.time}–${endTimeStr} · por confirmar</span>
         </div>
@@ -3568,7 +3621,7 @@ async function renderDayTimelineHtml(items, date){
     const bg = item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)');
     const borderColor = item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)');
     eventsHtml += `
-      <div class="timeline-block${item.done ? ' done' : ''}" style="top:${top}px;height:${height}px;background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")'>
+      <div class="timeline-block${item.done ? ' done' : ''}" style="${posStyle}background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")'>
         <button class="timeline-edit-btn" onclick='event.stopPropagation();editAppointment("${item.client.id}", ${item.idx})'>✏️</button>
         ${!item.done ? `<button class="timeline-paid-btn" onclick='event.stopPropagation();openMarkPaidModal("${item.client.id}", ${item.idx})'>💰</button>` : ''}
         <span class="t-name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}</span>
