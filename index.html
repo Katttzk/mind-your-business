@@ -430,9 +430,12 @@
   .month-cell.is-today .m-daynum{background:var(--mustard);color:#fff;}
   .month-cell.selected{border-color:var(--teal);border-width:2px;}
   .month-cell.selected .m-daynum{background:var(--teal);color:#fff;}
-  .month-dots{display:flex;gap:3px;height:6px;margin-top:4px;overflow:hidden;max-width:90%;flex-shrink:0;}
-  .month-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;background:var(--teal);}
-  .month-dot.gcal{background:transparent;border:1px dashed #9C9788;}
+  .month-dots{display:flex;gap:2px;height:13px;margin-top:4px;overflow:hidden;max-width:92%;flex-shrink:0;}
+  .month-dot{
+    width:13px;height:13px;border-radius:50%;flex-shrink:0;background:var(--teal);color:#fff;
+    font-size:.42rem;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .month-dot.gcal{background:#ECEAE4;border:1px dashed #9C9788;color:#6B6759;}
   .month-dot.done{opacity:.4;}
   .m-chip{
     background:#DCEAE6;color:var(--teal-dark);font-size:.6rem;line-height:1.5;font-weight:600;
@@ -3003,7 +3006,8 @@ function buildPickerMonthGridHtml(items, refDate){
     dayItems.slice(0, MAX_DOTS).forEach(it => {
       const bg = it.groomerColor || 'var(--teal)';
       const doneClass = it.done ? ' done' : '';
-      chips += `<span class="month-dot${doneClass}" style="background:${bg};" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}"></span>`;
+      const initials = getInitials(it.client.nome);
+      chips += `<span class="month-dot${doneClass}" style="background:${bg};" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}">${initials}</span>`;
     });
     if(chips) chips = `<div class="month-dots">${chips}</div>`;
 
@@ -3653,12 +3657,13 @@ async function renderMonthHtml(items, refDate){
     const MAX_DOTS = 4;
     dayItems.slice(0, MAX_DOTS).forEach(it => {
       if(it.isGoogleEvent){
-        chips += `<span class="month-dot gcal" title="${escapeHtml(it.time + ' ' + it.nota)} (Google, por confirmar)"></span>`;
+        chips += `<span class="month-dot gcal" title="${escapeHtml(it.time + ' ' + it.nota)} (Google, por confirmar)">G</span>`;
         return;
       }
       const bg = it.groomerColor || 'var(--teal)';
       const doneClass = it.done ? ' done' : '';
-      chips += `<span class="month-dot${doneClass}" style="background:${bg};" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}${it.done ? ' (concluída)' : ''}"></span>`;
+      const initials = getInitials(it.client.nome);
+      chips += `<span class="month-dot${doneClass}" style="background:${bg};" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}${it.done ? ' (concluída)' : ''}">${initials}</span>`;
     });
     if(chips) chips = `<div class="month-dots">${chips}</div>`;
 
