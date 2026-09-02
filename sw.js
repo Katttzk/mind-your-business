@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v66-repair-visible';
+const CACHE_NAME = 'fichas-tosquia-v67-force-reauth';
 const FILES_TO_CACHE = [
   './',
   './index.html',
