@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v57-agenda-first';
+const CACHE_NAME = 'fichas-tosquia-v58-clientid';
 const FILES_TO_CACHE = [
   './',
   './index.html',
