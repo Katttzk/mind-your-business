@@ -4560,6 +4560,15 @@ function renderSettingsModal(){
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
+          ${driveSyncEnabled ? `
+            <div class="settings-menu-row" style="margin-top:8px;background:#FFF4DE;border-color:#F0D9A0;" onclick="resetDriveSyncConnection()">
+              <div class="settings-menu-icon">🛠️</div>
+              <div class="settings-menu-info">
+                <div class="settings-menu-title">Reparar sincronização</div>
+                <div class="settings-menu-sub">Usa isto se os aparelhos não mostrarem os mesmos dados</div>
+              </div>
+            </div>
+          ` : ''}
         </div>
       </div>
     `;

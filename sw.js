@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v65-sync-reset';
+const CACHE_NAME = 'fichas-tosquia-v66-repair-visible';
 const FILES_TO_CACHE = [
   './',
   './index.html',
