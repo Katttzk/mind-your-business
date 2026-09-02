@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v63-overlap-columns';
+const CACHE_NAME = 'fichas-tosquia-v64-drive-scope';
 const FILES_TO_CACHE = [
   './',
   './index.html',
