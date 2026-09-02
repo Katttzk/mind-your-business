@@ -5019,14 +5019,20 @@ async function mergeAndApplyRemoteData(){
 async function driveSyncCycle(){
   if(!driveSyncEnabled || !driveAccessToken) return;
   try {
-    await uploadDeviceSnapshot();
+    // Primeiro vai buscar e junta os dados que já existem noutros aparelhos —
+    // só depois envia o estado deste aparelho. Isto evita que um aparelho novo,
+    // ainda sem dados locais, "publique" um estado vazio antes de ter recebido
+    // o que já existia.
     await mergeAndApplyRemoteData();
+    await uploadDeviceSnapshot();
     lastSyncAt = Date.now();
     refreshVisibleScreen();
     const statusEl = document.getElementById('drivesync-status');
     if(statusEl) statusEl.textContent = `🟢 Ligado — última sincronização: ${lastSyncLabel()}`;
   } catch(err){
     console.warn('Erro na sincronização com o Drive:', err);
+    const statusEl = document.getElementById('drivesync-status');
+    if(statusEl) statusEl.textContent = `🟠 Erro na última sincronização (${lastSyncLabel()}) — a tentar novamente em breve.`;
   }
 }
 
