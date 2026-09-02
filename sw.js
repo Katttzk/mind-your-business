@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v64-drive-scope';
+const CACHE_NAME = 'fichas-tosquia-v65-sync-reset';
 const FILES_TO_CACHE = [
   './',
   './index.html',

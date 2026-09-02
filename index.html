@@ -4517,6 +4517,14 @@ function renderSettingsModal(){
           <input type="checkbox" ${gcalSyncEnabled ? 'checked' : ''} onchange="toggleGoogleCalendarSync()" ${!driveSyncEnabled ? 'disabled' : ''}>
           <span>Mostrar eventos do Google Calendar na Agenda${!driveSyncEnabled ? ' (liga primeiro o Drive acima)' : ''}</span>
         </label>
+
+        ${driveSyncEnabled ? `
+          <h3 style="margin-top:18px;">🔧 Resolução de problemas</h3>
+          <div class="hint" style="margin:6px 0 12px;">
+            Se os teus aparelhos não estiverem a mostrar os mesmos clientes/marcações, usa este botão — obriga a app a procurar de novo a pasta correta de sincronização no Drive (a mais antiga), em vez de continuar a usar uma ligação guardada que possa estar errada. Faz isto em todos os aparelhos, um de cada vez.
+          </div>
+          <button class="btn-ghost" style="width:100%;border:1px solid var(--line);" onclick="resetDriveSyncConnection()">🔄 Repor ligação de sincronização</button>
+        ` : ''}
       </div>
     `;
   } else {
@@ -4934,9 +4942,11 @@ async function driveFetch(url, options){
 async function ensureDriveFolder(){
   if(driveFolderId) return driveFolderId;
   const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const searchRes = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const searchRes = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id,name,createdTime)`);
   const searchData = await searchRes.json();
   if(searchData.files && searchData.files.length > 0){
+    // Usa sempre a pasta mais antiga — garante que todos os aparelhos convergem para a mesma,
+    // mesmo que tenham existido pastas duplicadas criadas por engano.
     driveFolderId = searchData.files[0].id;
   } else {
     const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files', {
@@ -4949,6 +4959,25 @@ async function ensureDriveFolder(){
   }
   localStorage.setItem('mtb_drive_folder_id', driveFolderId);
   return driveFolderId;
+}
+
+async function resetDriveSyncConnection(){
+  const ok = confirm('Isto vai limpar a ligação local a pastas do Drive guardada neste aparelho, e obrigar a app a procurar de novo a pasta correta de sincronização (a mais antiga, partilhada com os outros aparelhos). Usa isto se os aparelhos não estiverem a mostrar os mesmos dados. Continuar?');
+  if(!ok) return;
+
+  localStorage.removeItem('mtb_drive_folder_id');
+  localStorage.removeItem('mtb_own_drive_file_id');
+  driveFolderId = null;
+
+  try {
+    await ensureDriveFolder();
+    await driveSyncCycle();
+    alert('Sincronização reiniciada. Aguarda um momento e verifica se os dados aparecem corretamente. Repete isto no(s) outro(s) aparelho(s) se ainda faltarem dados.');
+  } catch(err){
+    console.error(err);
+    alert('Não foi possível reiniciar a sincronização: ' + (err && err.message ? err.message : err));
+  }
+  renderSettingsModal();
 }
 
 async function findOwnDeviceFileId(){
