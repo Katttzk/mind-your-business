@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v58-clientid';
+const CACHE_NAME = 'fichas-tosquia-v59-month-badges';
 const FILES_TO_CACHE = [
   './',
   './index.html',

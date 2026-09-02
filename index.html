@@ -416,20 +416,27 @@
   /* Vista Mês — grelha com marcações visíveis */
   .month-grid{max-width:640px;margin:8px auto 0;padding:0 16px;}
   .month-weekdays{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.66rem;color:var(--muted);margin-bottom:4px;}
-  .month-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;align-items:start;}
+  .month-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;align-items:stretch;}
   .month-cell{
-    min-height:60px;border-radius:9px;background:var(--panel);border:1px solid var(--line);
-    display:flex;flex-direction:column;align-items:stretch;gap:3px;cursor:pointer;
-    padding:4px 3px 6px;
+    min-height:52px;border-radius:9px;background:var(--panel);border:1px solid var(--line);
+    display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;
+    padding:4px 2px 5px;
   }
   .month-cell.other-month{opacity:.4;}
   .month-cell .m-daynum{
     font-size:.72rem;font-weight:700;color:var(--ink);width:19px;height:19px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;margin-bottom:1px;
+    display:flex;align-items:center;justify-content:center;margin-bottom:1px;flex-shrink:0;
   }
   .month-cell.is-today .m-daynum{background:var(--mustard);color:#fff;}
   .month-cell.selected{border-color:var(--teal);border-width:2px;}
   .month-cell.selected .m-daynum{background:var(--teal);color:#fff;}
+  .m-badges{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;max-width:100%;}
+  .m-badge{
+    width:15px;height:15px;border-radius:50%;color:#fff;font-size:.48rem;font-weight:800;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;
+  }
+  .m-badge.gcal-badge{background:#ECEAE4;border:1px dashed #9C9788;color:#6B6759;font-size:.58rem;}
+  .m-badge-more{background:var(--line);color:var(--muted);font-size:.44rem;}
   .m-chip{
     background:#DCEAE6;color:var(--teal-dark);font-size:.6rem;line-height:1.5;font-weight:600;
     padding:1px 4px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -2995,13 +3002,17 @@ function buildPickerMonthGridHtml(items, refDate){
     if(iso === todayIso) classes.push('is-today');
 
     let chips = '';
-    dayItems.forEach(it => {
-      const label = `${it.time} ${it.client.nome || 'Sem nome'}`;
-      const style = it.groomerColor
-        ? `background:${it.groomerColor}33;color:${shadeColor(it.groomerColor,-25)};border-left:3px solid ${it.groomerColor};`
-        : '';
-      chips += `<div class="m-chip${it.done ? ' done' : ''}" style="${style}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+    const MAX_BADGES = 6;
+    dayItems.slice(0, MAX_BADGES).forEach(it => {
+      const initials = getInitials(it.client.nome);
+      const bg = it.groomerColor || 'var(--teal)';
+      const doneStyle = it.done ? 'opacity:.4;' : '';
+      chips += `<span class="m-badge" style="background:${bg};${doneStyle}" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}">${initials}</span>`;
     });
+    if(dayItems.length > MAX_BADGES){
+      chips += `<span class="m-badge m-badge-more" title="Mais ${dayItems.length - MAX_BADGES} marcação(ões)">+${dayItems.length - MAX_BADGES}</span>`;
+    }
+    if(chips) chips = `<div class="m-badges">${chips}</div>`;
 
     html += `<div class="${classes.join(' ')}" onclick="selectApptDay('${iso}')"><div class="m-daynum">${d.getDate()}</div>${chips}</div>`;
   }
@@ -3213,6 +3224,13 @@ function startOfWeek(d){
   return r;
 }
 function capitalize(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+
+function getInitials(name){
+  if(!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if(parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 function shadeColor(hex, percent){
   const num = parseInt(hex.replace('#',''), 16);
@@ -3639,17 +3657,21 @@ async function renderMonthHtml(items, refDate){
     if(iso === selectedIso) classes.push('selected');
 
     let chips = '';
-    dayItems.forEach(it => {
-      const label = `${it.time} ${it.client.nome || 'Sem nome'}`;
+    const MAX_BADGES = 6;
+    dayItems.slice(0, MAX_BADGES).forEach(it => {
       if(it.isGoogleEvent){
-        chips += `<div class="m-chip gcal-chip" title="${escapeHtml(label)} (Google, por confirmar)">📅 ${escapeHtml(label)}</div>`;
+        chips += `<span class="m-badge gcal-badge" title="${escapeHtml(it.time + ' ' + it.nota)} (Google, por confirmar)">📅</span>`;
         return;
       }
-      const style = it.groomerColor
-        ? `background:${it.groomerColor}33;color:${shadeColor(it.groomerColor,-25)};border-left:3px solid ${it.groomerColor};`
-        : '';
-      chips += `<div class="m-chip${it.done ? ' done' : ''}" style="${style}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+      const initials = getInitials(it.client.nome);
+      const bg = it.groomerColor || 'var(--teal)';
+      const doneStyle = it.done ? 'opacity:.4;' : '';
+      chips += `<span class="m-badge" style="background:${bg};${doneStyle}" title="${escapeHtml(it.time + ' ' + (it.client.nome || 'Sem nome'))}${it.done ? ' (concluída)' : ''}">${initials}</span>`;
     });
+    if(dayItems.length > MAX_BADGES){
+      chips += `<span class="m-badge m-badge-more" title="Mais ${dayItems.length - MAX_BADGES} marcação(ões)">+${dayItems.length - MAX_BADGES}</span>`;
+    }
+    if(chips) chips = `<div class="m-badges">${chips}</div>`;
 
     html += `<div class="${classes.join(' ')}" data-iso="${iso}"><div class="m-daynum">${d.getDate()}</div>${chips}</div>`;
   }
