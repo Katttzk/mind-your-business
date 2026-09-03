@@ -1068,10 +1068,11 @@ const DAYNOTE_STORE = 'dayNotes';
 const SHOPPING_STORE = 'shopping';
 const EXPENSE_STORE = 'expenses';
 const PRICE_STORE = 'precos';
+const GCAL_HANDLED_STORE = 'gcalHandled';
 
 function openDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 6);
+    const req = indexedDB.open(DB_NAME, 7);
     req.onupgradeneeded = (e) => {
       const d = e.target.result;
       if(!d.objectStoreNames.contains(STORE)){
@@ -1091,6 +1092,9 @@ function openDB(){
       }
       if(!d.objectStoreNames.contains(PRICE_STORE)){
         d.createObjectStore(PRICE_STORE, { keyPath: 'id' });
+      }
+      if(!d.objectStoreNames.contains(GCAL_HANDLED_STORE)){
+        d.createObjectStore(GCAL_HANDLED_STORE, { keyPath: 'id' });
       }
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
@@ -4003,16 +4007,43 @@ function closeQuickAdd(){
 let gcalEventsCache = { fetchedAt: 0, events: [] };
 let pendingGCalEvent = null;
 
-function getHandledGCalIds(){
-  return JSON.parse(localStorage.getItem('mtb_handled_gcal_events') || '[]');
+function getAllGcalHandled(){
+  return new Promise((resolve) => {
+    const tx = db.transaction(GCAL_HANDLED_STORE, 'readonly');
+    const req = tx.objectStore(GCAL_HANDLED_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+  });
 }
 
-function markGCalEventHandled(eventId){
-  const list = getHandledGCalIds();
-  if(!list.includes(eventId)){
-    list.push(eventId);
-    localStorage.setItem('mtb_handled_gcal_events', JSON.stringify(list.slice(-1000)));
-  }
+function putGcalHandledRaw(record){
+  return new Promise((resolve) => {
+    const tx = db.transaction(GCAL_HANDLED_STORE, 'readwrite');
+    tx.objectStore(GCAL_HANDLED_STORE).put(record);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+function putGcalHandled(record){
+  record.updatedAt = Date.now();
+  return putGcalHandledRaw(record);
+}
+
+function deleteGcalHandledDB(id){
+  recordTombstone(GCAL_HANDLED_STORE, id);
+  return new Promise((resolve) => {
+    const tx = db.transaction(GCAL_HANDLED_STORE, 'readwrite');
+    tx.objectStore(GCAL_HANDLED_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+async function getHandledGCalIds(){
+  const list = await getAllGcalHandled();
+  return list.map(r => r.id);
+}
+
+async function markGCalEventHandled(eventId){
+  await putGcalHandled({ id: eventId });
 }
 
 async function fetchGoogleCalendarEvents(timeMinISO, timeMaxISO){
@@ -4071,7 +4102,7 @@ async function getGoogleEventsForRange(startDate, endDate){
     const rawEvents = await fetchGoogleCalendarEvents(timeMin.toISOString(), timeMax.toISOString());
     gcalEventsCache = { fetchedAt: now, events: rawEvents };
   }
-  const handled = getHandledGCalIds();
+  const handled = await getHandledGCalIds();
   const startIso = isoDate(startDate), endIso = isoDate(endDate);
   return gcalEventsCache.events
     .filter(ev => !handled.includes(ev.id))
@@ -4135,15 +4166,15 @@ async function confirmGoogleEventAsAppointment(){
     lembreteEnviado: false
   });
   await putClient(client);
-  markGCalEventHandled(pendingGCalEvent.googleEventId);
+  await markGCalEventHandled(pendingGCalEvent.googleEventId);
 
   pendingGCalEvent = null;
   closeQuickAdd();
   renderAgendaBody();
 }
 
-function dismissGoogleEvent(eventId){
-  markGCalEventHandled(eventId);
+async function dismissGoogleEvent(eventId){
+  await markGCalEventHandled(eventId);
   pendingGCalEvent = null;
   closeQuickAdd();
   renderAgendaBody();
@@ -4652,12 +4683,13 @@ async function exportAllData(){
     const shopping = await getAllShoppingItems();
     const expenses = await getAllExpenses();
     const precos = await getAllPrices();
+    const gcalHandled = await getAllGcalHandled();
 
     const data = {
       app: 'Mind your Business — for Groomers',
       version: 1,
       exportedAt: new Date().toISOString(),
-      clientes, groomers, dayNotes, shopping, expenses, precos,
+      clientes, groomers, dayNotes, shopping, expenses, precos, gcalHandled,
       settings: {
         businessLogo: localStorage.getItem(BRAND_LOGO_KEY) || null,
         businessName: localStorage.getItem(BRAND_NAME_KEY) || null,
@@ -4702,6 +4734,7 @@ async function handleImportFile(event){
     await clearStore(SHOPPING_STORE);
     await clearStore(EXPENSE_STORE);
     await clearStore(PRICE_STORE);
+    await clearStore(GCAL_HANDLED_STORE);
 
     for(const c of (data.clientes || [])) await putClient(c);
     for(const g of (data.groomers || [])) await putGroomer(g);
@@ -4709,6 +4742,7 @@ async function handleImportFile(event){
     for(const s of (data.shopping || [])) await putShoppingItem(s);
     for(const e of (data.expenses || [])) await putExpense(e);
     for(const p of (data.precos || [])) await putPriceRaw(p);
+    for(const g of (data.gcalHandled || [])) await putGcalHandledRaw(g);
 
     if(data.settings){
       if(data.settings.businessLogo) localStorage.setItem(BRAND_LOGO_KEY, data.settings.businessLogo);
@@ -4869,7 +4903,8 @@ const SYNC_STORES = [
   { name: DAYNOTE_STORE, keyField: 'date', getAll: () => getAllDayNotes(), putRaw: putDayNoteRaw, del: deleteDayNoteDB },
   { name: SHOPPING_STORE, keyField: 'id', getAll: () => getAllShoppingItems(), putRaw: putShoppingItemRaw, del: deleteShoppingItemDB },
   { name: EXPENSE_STORE, keyField: 'id', getAll: () => getAllExpenses(), putRaw: putExpenseRaw, del: deleteExpenseDB },
-  { name: PRICE_STORE, keyField: 'id', getAll: () => getAllPrices(), putRaw: putPriceRaw, del: deletePriceDB }
+  { name: PRICE_STORE, keyField: 'id', getAll: () => getAllPrices(), putRaw: putPriceRaw, del: deletePriceDB },
+  { name: GCAL_HANDLED_STORE, keyField: 'id', getAll: () => getAllGcalHandled(), putRaw: putGcalHandledRaw, del: deleteGcalHandledDB }
 ];
 
 let driveSyncEnabled = localStorage.getItem('mtb_drive_sync_enabled') === 'true';
