@@ -5349,8 +5349,12 @@ async function mergeAndApplyRemoteData(){
   }
 }
 
+let driveSyncInProgress = false;
+
 async function driveSyncCycle(){
   if(!driveSyncEnabled || !driveAccessToken) return;
+  if(driveSyncInProgress) return; // evita que dois ciclos corram ao mesmo tempo e se pisem
+  driveSyncInProgress = true;
   try {
     await ensureDriveFolder();
     // Primeiro vai buscar e junta os dados que já existem noutros aparelhos —
@@ -5369,6 +5373,8 @@ async function driveSyncCycle(){
     lastSyncError = (err && err.message) ? err.message : String(err);
     const statusEl = document.getElementById('drivesync-status');
     if(statusEl) statusEl.textContent = `🟠 Erro na última sincronização: ${lastSyncError}`;
+  } finally {
+    driveSyncInProgress = false;
   }
 }
 
