@@ -206,6 +206,18 @@
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:12px;display:flex;gap:12px;align-items:center;
   }
+  .client-card.has-noshow{
+    background:#FDF1F0;border:1.5px solid #E5A9A3;
+  }
+  .noshow-badge{
+    display:inline-flex;align-items:center;gap:3px;background:#E4572E;color:#fff;
+    font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:3px;
+  }
+  .noshow-form-banner{
+    background:#FDF1F0;border:1.5px solid #E5A9A3;border-radius:12px;padding:12px 14px;
+    margin:0 0 14px;font-size:.86rem;color:#8F3E36;
+  }
+  .noshow-form-banner button{margin-top:8px;border-color:#E5A9A3;color:#8F3E36;}
   .client-card img{
     width:58px;height:58px;border-radius:10px;object-fit:cover;background:var(--line);flex-shrink:0;
   }
@@ -391,7 +403,12 @@
     position:absolute;bottom:2px;right:2px;background:rgba(255,255,255,.25);color:#fff;
     width:20px;height:20px;border-radius:50%;font-size:.6rem;padding:0;line-height:1;border:none;
   }
+  .timeline-noshow-btn{
+    position:absolute;bottom:2px;left:2px;background:rgba(255,255,255,.25);color:#fff;
+    width:20px;height:20px;border-radius:50%;font-size:.6rem;padding:0;line-height:1;border:none;
+  }
   .icon-btn-paid{background:#FFF4DE;border-color:#F0D9A0;}
+  .icon-btn-noshow{background:#FBEAEA;border-color:#F0C4C4;}
   .day-empty-msg{text-align:center;color:var(--muted);padding:30px 10px;font-size:.88rem;}
 
   /* Eventos importados do Google Calendar (por confirmar) */
@@ -897,6 +914,7 @@
     </div>
 
     <h2 id="form-animal-name" class="animal-name-display">Nova ficha</h2>
+    <div id="form-noshow-banner"></div>
 
     <div class="form-section">
       <h3>Fotografia principal</h3>
@@ -2147,6 +2165,8 @@ function clearForm(){
   img.src = '';
   img.classList.add('placeholder');
   document.getElementById('form-animal-name').textContent = 'Nova ficha';
+  const banner = document.getElementById('form-noshow-banner');
+  if(banner) banner.innerHTML = '';
 }
 
 function fillForm(c){
@@ -2184,6 +2204,31 @@ function fillForm(c){
   paymentsExpanded = false;
   renderPayments();
   renderAnamneseList();
+  renderNoShowBanner(c);
+}
+
+function renderNoShowBanner(c){
+  const el = document.getElementById('form-noshow-banner');
+  if(!el) return;
+  const numFaltas = (c.faltas || []).length;
+  if(numFaltas === 0){
+    el.innerHTML = '';
+    return;
+  }
+  const datas = c.faltas.slice(-3).map(f => formatDate(f.date)).join(', ');
+  el.innerHTML = `
+    <div class="noshow-form-banner">
+      <div>🚫 <strong>${numFaltas} falta${numFaltas === 1 ? '' : 's'} registada${numFaltas === 1 ? '' : 's'}</strong> (últimas: ${escapeHtml(datas)}) — considera pedir caução para a próxima marcação.</div>
+      <button class="btn-ghost" onclick="clearNoShows()">Limpar registo de faltas</button>
+    </div>
+  `;
+}
+
+async function clearNoShows(){
+  if(!confirm('Limpar o registo de faltas deste animal? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.')) return;
+  currentClient.faltas = [];
+  await saveClient(true);
+  renderNoShowBanner(currentClient);
 }
 
 // ---------- Fotos ----------
@@ -3021,7 +3066,8 @@ async function renderList(){
 
   filtered.forEach(c => {
     const card = document.createElement('div');
-    card.className = 'client-card';
+    const numFaltas = (c.faltas || []).length;
+    card.className = 'client-card' + (numFaltas > 0 ? ' has-noshow' : '');
     const photoHtml = c.foto
       ? `<img src="${c.foto}">`
       : `<div class="ph-placeholder">🐾</div>`;
@@ -3032,6 +3078,7 @@ async function renderList(){
       <div class="client-info">
         <div class="name">${escapeHtml(c.nome || 'Sem nome')}</div>
         <div class="sub">${escapeHtml(c.raca || '')}${c.tutorNome ? ' · ' + escapeHtml(c.tutorNome) : ''}</div>
+        ${numFaltas > 0 ? `<div><span class="noshow-badge">🚫 ${numFaltas} falta${numFaltas === 1 ? '' : 's'}</span></div>` : ''}
       </div>
       <div class="card-actions">
         ${wa ? `<a class="icon-btn icon-btn-whatsapp" href="${wa}" onclick="event.stopPropagation();" target="_blank" title="Abrir WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
@@ -3701,13 +3748,14 @@ async function renderDayTimelineHtml(items, date){
       return;
     }
 
-    const bg = item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)');
-    const borderColor = item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)');
+    const bg = item.noShow ? '#C0554A' : (item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)'));
+    const borderColor = item.noShow ? '#8F3E36' : (item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)'));
     eventsHtml += `
       <div class="timeline-block${item.done ? ' done' : ''}" style="${posStyle}background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")'>
         <button class="timeline-edit-btn" onclick='event.stopPropagation();editAppointment("${item.client.id}", ${item.idx})'>✏️</button>
         ${!item.done ? `<button class="timeline-paid-btn" onclick='event.stopPropagation();openMarkPaidModal("${item.client.id}", ${item.idx})'>💰</button>` : ''}
-        <span class="t-name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}</span>
+        ${!item.done ? `<button class="timeline-noshow-btn" onclick='event.stopPropagation();markNoShow("${item.client.id}", ${item.idx})' title="Cliente não apareceu">🚫</button>` : ''}
+        <span class="t-name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫' : ''}</span>
         <span class="t-sub">${item.time}–${endTimeStr}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}</span>
       </div>
     `;
@@ -3850,14 +3898,14 @@ async function renderSelectedDayListHtml(items, date){
         `;
         return;
       }
-      const borderStyle = item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : '';
+      const borderStyle = item.noShow ? 'border-left:4px solid #C0554A;' : (item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : '');
       const waUrl = whatsappReminderUrl(item.client, item);
       rows += `
         <div class="agenda-item${item.done ? ' done' : ''}" style="${borderStyle}">
           <div class="agenda-item-top">
             <div class="agenda-time">${item.time}–${getEffectiveEndTime(item)}</div>
             <div class="agenda-info" data-open="${item.client.id}" style="cursor:pointer;">
-              <div class="name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}</div>
+              <div class="name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫 Não apareceu' : ''}</div>
               <div class="sub">${escapeHtml(item.client.tutorNome || '')}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}${item.groomerName ? ' · ' + escapeHtml(item.groomerName) : ''}</div>
             </div>
           </div>
@@ -3865,6 +3913,7 @@ async function renderSelectedDayListHtml(items, date){
             <button class="icon-btn" data-edit="${item.client.id}" data-idx="${item.idx}" title="Editar">✏️</button>
             ${waUrl ? `<a class="icon-btn icon-btn-whatsapp" href="${waUrl}" target="_blank" onclick="event.stopPropagation();" title="Confirmar por WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
             ${!item.done ? `<button class="icon-btn icon-btn-paid" data-markpaid="${item.client.id}" data-idx="${item.idx}" title="Marcar como paga">💰</button>` : ''}
+            ${!item.done ? `<button class="icon-btn icon-btn-noshow" data-noshow="${item.client.id}" data-idx="${item.idx}" title="Cliente não apareceu">🚫</button>` : ''}
             <button class="icon-btn" data-complete="${item.client.id}" data-idx="${item.idx}" title="${item.done ? 'Reabrir' : 'Concluída'}">${item.done ? '↺' : '✓'}</button>
           </div>
         </div>
@@ -3897,6 +3946,12 @@ function attachSelectedDayListHandlers(){
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       openMarkPaidModal(el.getAttribute('data-markpaid'), Number(el.getAttribute('data-idx')));
+    });
+  });
+  document.querySelectorAll('[data-noshow]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      markNoShow(el.getAttribute('data-noshow'), Number(el.getAttribute('data-idx')));
     });
   });
 }
@@ -4463,6 +4518,39 @@ async function confirmMarkPaid(clientId, idx){
   }
 
   updateAgendaTabBadge();
+}
+
+async function markNoShow(clientId, idx){
+  const ok = confirm('Marcar esta marcação como "Cliente não apareceu"? Isto fica registado na ficha do animal, que passa a aparecer destacado a vermelho na lista de Clientes.');
+  if(!ok) return;
+
+  const clients = await getAllClients();
+  const client = clients.find(c => c.id === clientId);
+  if(!client || !client.agendamentos || !client.agendamentos[idx]) return;
+
+  const appt = client.agendamentos[idx];
+  appt.done = true;
+  appt.noShow = true;
+
+  if(!client.faltas) client.faltas = [];
+  client.faltas.push({ date: appt.date, time: appt.time, marcadoEm: Date.now() });
+
+  await putClient(client);
+
+  if(currentClient && currentClient.id === clientId){
+    currentClient = client;
+    renderAppointments();
+  }
+
+  const agendaScreen = document.getElementById('agenda-screen');
+  if(agendaScreen && agendaScreen.classList.contains('active')){
+    renderAgendaBody();
+  }
+
+  const listScreen = document.getElementById('list-screen');
+  if(listScreen && listScreen.classList.contains('active')){
+    renderList();
+  }
 }
 
 // ---------- Separadores principais ----------
