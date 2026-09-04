@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v73-gcal-sync-fix';
+const CACHE_NAME = 'fichas-tosquia-v79-return-tab-fix';
 const FILES_TO_CACHE = [
   './',
   './index.html',

@@ -7,6 +7,10 @@
 <title>Mind your Business — for Groomers</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mind your Business">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap" rel="stylesheet">
@@ -1037,7 +1041,7 @@
 
     <div class="form-section" id="incidents-section" style="display:none;">
       <h3>Registo de ocorrências / provas fotográficas</h3>
-      <div class="hint" style="margin-bottom:10px;">Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — várias fotos + uma nota, com data automática. Fica guardado como prova em caso de reclamação.</div>
+      <div class="hint" style="margin-bottom:10px;">Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.</div>
 
       <label>Observação</label>
       <textarea id="f-incident-nota" placeholder="Ex: Orelha esquerda já inflamada na chegada, antes de qualquer procedimento."></textarea>
@@ -1304,7 +1308,7 @@ async function addShoppingItemUI(){
   const input = document.getElementById('shopping-input');
   const texto = input.value.trim();
   if(!texto) return;
-  await putShoppingItem({ id: 's_' + Date.now(), texto, comprado: false, createdAt: Date.now() });
+  await putShoppingItem({ id: generateId('s'), texto, comprado: false, createdAt: Date.now() });
   input.value = '';
   renderShoppingList();
 }
@@ -1405,6 +1409,7 @@ function deletePriceDB(id){
 let editingPriceId = null;
 
 function openPriceEditor(id){
+  mtbPushNav();
   editingPriceId = id || null;
   renderPriceEditorModal();
 }
@@ -1488,7 +1493,7 @@ async function savePriceEntry(){
   }
 
   const price = {
-    id: editingPriceId || ('pr_' + Date.now()),
+    id: editingPriceId || generateId('pr'),
     servico, porte, pelo, raca,
     preco: parseFloat(valorRaw)
   };
@@ -1596,7 +1601,7 @@ async function addExpenseUI(){
   }
 
   await putExpense({
-    id: 'e_' + Date.now(),
+    id: generateId('e'),
     descricao,
     valor: parseFloat(valorRaw),
     dataLimite,
@@ -1894,14 +1899,14 @@ function setRevenueView(view){
   document.getElementById('rev-subtab-day').classList.toggle('active', view === 'day');
   document.getElementById('rev-subtab-week').classList.toggle('active', view === 'week');
   document.getElementById('rev-subtab-month').classList.toggle('active', view === 'month');
-  renderRevenue();
+  renderRevenue(true);
 }
 
 function revenueNav(dir){
   if(revenueView === 'day') revenueDate = addDays(revenueDate, dir);
   else if(revenueView === 'week') revenueDate = addDays(revenueDate, dir * 7);
   else revenueDate = addMonths(revenueDate, dir);
-  renderRevenue();
+  renderRevenue(true);
 }
 
 let revenueBreakdownExpanded = false;
@@ -1909,7 +1914,7 @@ let revenueBreakdownVisibleCount = 10;
 const REVENUE_PAGE_SIZE = 10;
 let revenueSortedCache = [];
 
-async function renderRevenue(){
+async function renderRevenue(resetExpansion){
   const payments = await getAllPayments();
   let filtered, label, totalLabel;
 
@@ -1947,8 +1952,10 @@ async function renderRevenue(){
   `;
 
   revenueSortedCache = filtered.slice().sort((a,b) => b.date.localeCompare(a.date));
-  revenueBreakdownExpanded = false;
-  revenueBreakdownVisibleCount = REVENUE_PAGE_SIZE;
+  if(resetExpansion){
+    revenueBreakdownExpanded = false;
+    revenueBreakdownVisibleCount = REVENUE_PAGE_SIZE;
+  }
   renderRevenueBreakdown();
 }
 
@@ -2050,7 +2057,7 @@ async function addGroomer(){
     alert('Indica o nome do groomer.');
     return;
   }
-  await putGroomer({ id: 'g_' + Date.now(), nome, cor: selectedNewGroomerColor });
+  await putGroomer({ id: generateId('g'), nome, cor: selectedNewGroomerColor });
   document.getElementById('new-groomer-nome').value = '';
   await loadGroomerOptions(currentClient ? currentClient.groomerId : '');
   await renderGroomerExistingList();
@@ -2078,9 +2085,21 @@ let currentClient = null; // objeto em edição
 let currentMainPhoto = null;
 
 // ---------- Navegação ----------
+let formOpenedFromTab = 'list';
+
 function openForm(client){
+  mtbPushNav();
+  // Memoriza de que separador viemos (Agenda, Clientes, etc.), para o botão "Voltar"
+  // regressar ao sítio certo, em vez de ir sempre para Clientes.
+  if(document.getElementById('agenda-screen').classList.contains('active')) formOpenedFromTab = 'agenda';
+  else if(document.getElementById('business-screen').classList.contains('active')) formOpenedFromTab = 'business';
+  else if(document.getElementById('pricing-screen').classList.contains('active')) formOpenedFromTab = 'pricing';
+  else formOpenedFromTab = 'list';
+
   document.getElementById('list-screen').classList.remove('active');
   document.getElementById('agenda-screen').classList.remove('active');
+  document.getElementById('business-screen').classList.remove('active');
+  document.getElementById('pricing-screen').classList.remove('active');
   document.getElementById('tab-bar').style.display = 'none';
   document.getElementById('form-screen').classList.add('active');
   window.scrollTo(0,0);
@@ -2101,7 +2120,7 @@ function openForm(client){
     fillForm(client);
     loadGroomerOptions(client.groomerId);
   } else {
-    currentClient = { id: 'c_' + Date.now(), history: [], agendamentos: [], registos: [], pagamentos: [], anamneses: [] };
+    currentClient = { id: generateId('c'), history: [], agendamentos: [], registos: [], pagamentos: [], anamneses: [] };
     document.getElementById('delete-btn').style.display = 'none';
     document.getElementById('gallery-section').style.display = 'none';
     document.getElementById('agenda-section').style.display = 'none';
@@ -2116,12 +2135,7 @@ function openForm(client){
 function closeForm(){
   document.getElementById('form-screen').classList.remove('active');
   document.getElementById('tab-bar').style.display = 'flex';
-  document.getElementById('list-screen').classList.add('active');
-  document.getElementById('tab-clientes').classList.add('active');
-  document.getElementById('tab-agenda').classList.remove('active');
-  document.getElementById('tab-business').classList.remove('active');
-  document.getElementById('tab-pricing').classList.remove('active');
-  renderList();
+  showTab(formOpenedFromTab === 'list' ? 'list' : formOpenedFromTab);
 }
 
 function clearForm(){
@@ -2339,13 +2353,13 @@ function renderStagedPhotos(){
 
 async function saveIncidentEntry(){
   const nota = document.getElementById('f-incident-nota').value.trim();
-  if(pendingIncidentPhotos.length === 0){
-    alert('Adiciona pelo menos uma fotografia para guardar o registo.');
+  if(pendingIncidentPhotos.length === 0 && !nota){
+    alert('Escreve uma nota ou adiciona pelo menos uma fotografia para guardar o registo.');
     return;
   }
   if(!currentClient.registos) currentClient.registos = [];
   currentClient.registos.push({
-    id: 'r_' + Date.now(),
+    id: generateId('r'),
     date: isoDate(new Date()),
     nota,
     fotos: [...pendingIncidentPhotos]
@@ -2388,7 +2402,9 @@ function renderIncidentList(){
 }
 
 function openLightbox(src){
+  mtbPushNav();
   const overlay = document.createElement('div');
+  overlay.id = 'lightbox-overlay';
   overlay.className = 'lightbox-overlay';
   overlay.onclick = () => overlay.remove();
   overlay.innerHTML = `<button class="lightbox-close">×</button><img src="${src}">`;
@@ -2412,7 +2428,7 @@ async function savePaymentEntry(){
 
   if(!currentClient.pagamentos) currentClient.pagamentos = [];
   currentClient.pagamentos.push({
-    id: 'p_' + Date.now(),
+    id: generateId('p'),
     date,
     valor: parseFloat(valorRaw),
     nota
@@ -2520,6 +2536,7 @@ function saveAnamneseDeclarations(list){
 }
 
 async function openAnamneseModal(){
+  mtbPushNav();
   signatureHasDrawn = false;
   const c = currentClient;
   const todayLabel = formatDate(isoDate(new Date()));
@@ -2669,7 +2686,7 @@ async function saveAnamnese(){
   const assinatura = canvas.toDataURL('image/png');
 
   const record = {
-    id: 'an_' + Date.now(),
+    id: generateId('an'),
     date: isoDate(new Date()),
     declaracoes: declarations,
     snapshot: {
@@ -2718,6 +2735,7 @@ function renderAnamneseList(){
 function viewAnamnese(id){
   const record = (currentClient.anamneses || []).find(a => a.id === id);
   if(!record) return;
+  mtbPushNav();
   const s = record.snapshot;
 
   const overlay = getOrCreateAnamneseOverlay();
@@ -2789,6 +2807,7 @@ function printAnamnese(){
 let editingDeclarationsDraft = [];
 
 function openAnamneseTemplateEditor(){
+  mtbPushNav();
   editingDeclarationsDraft = getAnamneseDeclarations().slice();
   const overlay = getOrCreateAnamneseOverlay();
   renderAnamneseTemplateEditor();
@@ -3072,6 +3091,7 @@ function buildPickerMonthGridHtml(items, refDate){
 }
 
 async function openApptMonthPicker(){
+  mtbPushNav();
   apptPickerRefDate = new Date();
   apptPickerRefDate.setHours(0,0,0,0);
   apptPickerStep = 'calendar';
@@ -3259,6 +3279,16 @@ function renderAppointments(){
 let agendaView = 'day';
 let agendaDate = new Date();
 agendaDate.setHours(0,0,0,0);
+
+// Gera um identificador único para novos registos — evita que dois registos criados
+// muito próximos no tempo (ex: dois animais do mesmo dono, um a seguir ao outro)
+// acabem com o mesmo ID e um "substitua" o outro sem querer.
+function generateId(prefix){
+  if(window.crypto && typeof crypto.randomUUID === 'function'){
+    return prefix + '_' + crypto.randomUUID();
+  }
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+}
 
 function isoDate(d){
   const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
@@ -3893,6 +3923,7 @@ let quickAddClients = [];
 let quickAddSelectedClientId = '';
 
 async function openQuickAddFromAgenda(iso, presetTime){
+  mtbPushNav();
   quickAddClients = await getAllClients();
   quickAddSelectedClientId = '';
   const dateObj = new Date(iso + 'T00:00:00');
@@ -3987,7 +4018,7 @@ function renderQuickAddClientList(filter){
 
 async function createQuickClientAndSelect(nome){
   if(!nome) return;
-  const newClient = { id: 'c_' + Date.now(), nome, history: [], agendamentos: [], registos: [], pagamentos: [], anamneses: [] };
+  const newClient = { id: generateId('c'), nome, history: [], agendamentos: [], registos: [], pagamentos: [], anamneses: [] };
   await putClient(newClient);
   quickAddClients.push(newClient);
   quickAddSelectedClientId = newClient.id;
@@ -4111,7 +4142,51 @@ async function getGoogleEventsForRange(startDate, endDate){
     .filter(it => it.date >= startIso && it.date <= endIso);
 }
 
+// Limpeza única: eventos do Google que já têm uma marcação real criada (mesma data e hora)
+// mas que ainda aparecem como "por confirmar" — normalmente porque foram confirmados antes
+// de a lista de "eventos tratados" passar a sincronizar entre aparelhos.
+async function autoCleanConfirmedGoogleEvents(){
+  const ok = confirm('Isto vai procurar eventos do Google Calendar que já tenham uma marcação real criada (com a mesma data e hora) e marcá-los como tratados, para deixarem de aparecer ao lado das marcações reais. Continuar?');
+  if(!ok) return;
+
+  try {
+    const timeMin = new Date(); timeMin.setDate(timeMin.getDate() - 7);
+    const timeMax = new Date(); timeMax.setDate(timeMax.getDate() + 60);
+    const rawEvents = await fetchGoogleCalendarEvents(timeMin.toISOString(), timeMax.toISOString());
+    const handled = await getHandledGCalIds();
+    const pendingEvents = rawEvents
+      .filter(ev => !handled.includes(ev.id))
+      .map(gcalEventToPseudoItem)
+      .filter(Boolean);
+
+    const clients = await getAllClients();
+    const realAppointments = [];
+    clients.forEach(c => (c.agendamentos || []).forEach(a => realAppointments.push(a)));
+
+    let cleaned = 0;
+    for(const ev of pendingEvents){
+      const hasMatch = realAppointments.some(a => a.date === ev.date && a.time === ev.time);
+      if(hasMatch){
+        await markGCalEventHandled(ev.googleEventId);
+        cleaned++;
+      }
+    }
+
+    gcalEventsCache = { fetchedAt: 0, events: [] };
+    renderAgendaBody();
+    renderSettingsModal();
+    alert(cleaned > 0
+      ? `${cleaned} evento(s) do Google já confirmados foram limpos com sucesso.`
+      : 'Não foi encontrado nenhum evento do Google com uma marcação real correspondente (mesma data e hora).'
+    );
+  } catch(err){
+    console.error(err);
+    alert('Não foi possível concluir a limpeza: ' + (err && err.message ? err.message : err));
+  }
+}
+
 async function openConfirmGoogleEventModal(pseudoItem){
+  mtbPushNav();
   pendingGCalEvent = pseudoItem;
   quickAddClients = await getAllClients();
   quickAddSelectedClientId = '';
@@ -4211,6 +4286,7 @@ async function editAppointment(clientId, idx){
   const clients = await getAllClients();
   const client = clients.find(c => c.id === clientId);
   if(!client || !client.agendamentos || !client.agendamentos[idx]) return;
+  mtbPushNav();
   const appt = client.agendamentos[idx];
 
   let overlay = document.getElementById('editappt-overlay');
@@ -4298,6 +4374,7 @@ async function openMarkPaidModal(clientId, idx){
   const clients = await getAllClients();
   const client = clients.find(c => c.id === clientId);
   if(!client || !client.agendamentos || !client.agendamentos[idx]) return;
+  mtbPushNav();
   const appt = client.agendamentos[idx];
 
   let overlay = document.getElementById('markpaid-overlay');
@@ -4356,7 +4433,7 @@ async function confirmMarkPaid(clientId, idx){
 
   if(!client.pagamentos) client.pagamentos = [];
   client.pagamentos.push({
-    id: 'p_' + Date.now(),
+    id: generateId('p'),
     date: appt.date,
     valor: parseFloat(valorRaw),
     nota: nota || '',
@@ -4408,7 +4485,7 @@ function showTab(tab){
     document.getElementById('tab-business').classList.add('active');
     loadBrandingSettingsIntoForm();
     renderOverview();
-    renderRevenue();
+    renderRevenue(true);
     renderExpenses();
     renderShoppingList();
   } else if(tab === 'pricing'){
@@ -4511,6 +4588,7 @@ const THEME_OPTIONS = [
 let settingsView = 'menu';
 
 function openSettingsModal(){
+  mtbPushNav();
   settingsView = 'menu';
   let overlay = document.getElementById('settings-overlay');
   if(!overlay){
@@ -4601,6 +4679,9 @@ function renderSettingsModal(){
           <input type="checkbox" ${gcalSyncEnabled ? 'checked' : ''} onchange="toggleGoogleCalendarSync()" ${!driveSyncEnabled ? 'disabled' : ''}>
           <span>Mostrar eventos do Google Calendar na Agenda${!driveSyncEnabled ? ' (liga primeiro o Drive acima)' : ''}</span>
         </label>
+        ${gcalSyncEnabled ? `
+          <button class="btn-ghost" style="width:100%;border:1px solid var(--line);margin-top:10px;" onclick="autoCleanConfirmedGoogleEvents()">🧹 Limpar eventos do Google já confirmados</button>
+        ` : ''}
 
         ${driveSyncEnabled ? `
           <h3 style="margin-top:18px;">🔧 Resolução de problemas</h3>
@@ -5323,6 +5404,50 @@ function attemptSilentDriveReconnect(){
   });
   driveTokenClient.requestAccessToken({ prompt: '' });
 }
+
+// ---------- Botão de retroceder do Android — navega dentro da app em vez de sair ----------
+function mtbPushNav(){
+  history.pushState({ mtbNav: true }, '');
+}
+
+function closeTopMostUI(){
+  // 1. Fecha primeiro qualquer janela/modal aberta (a mais recente)
+  const overlayIds = [
+    'settings-overlay', 'appt-picker-overlay', 'quickadd-overlay',
+    'editappt-overlay', 'markpaid-overlay', 'anamnese-overlay', 'price-editor-overlay',
+    'lightbox-overlay'
+  ];
+  for(const id of overlayIds){
+    const el = document.getElementById(id);
+    if(el){ el.remove(); return true; }
+  }
+  // 2. Se a ficha de um cliente estiver aberta, volta à lista
+  const formScreen = document.getElementById('form-screen');
+  if(formScreen && formScreen.classList.contains('active')){
+    closeForm();
+    return true;
+  }
+  // 3. Se não estiver na Agenda (ecrã principal), volta para lá
+  const agendaScreen = document.getElementById('agenda-screen');
+  if(agendaScreen && !agendaScreen.classList.contains('active')){
+    showTab('agenda');
+    return true;
+  }
+  // 4. Já não há mais nada "dentro" da app para fechar — deixa sair normalmente
+  return false;
+}
+
+window.addEventListener('popstate', () => {
+  const closed = closeTopMostUI();
+  if(closed){
+    // Volta a criar um "degrau" no histórico, para o botão continuar a funcionar
+    // da próxima vez, em vez de sair logo na segunda tentativa.
+    mtbPushNav();
+  }
+});
+
+// Estabelece o ponto de partida do histórico ao abrir a app
+history.replaceState({ mtbNav: true }, '');
 
 // ---------- Arranque ----------
 openDB().then(() => {
