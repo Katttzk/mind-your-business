@@ -348,6 +348,8 @@
   }
   .appt-row .appt-date{font-size:.85rem;font-weight:600;color:var(--teal-dark);flex:1;padding-top:6px;}
   .appt-row.done .appt-date{text-decoration:line-through;color:var(--muted);}
+  .appt-row.noshow{background:#FDF1F0;border-color:#E5A9A3;}
+  .appt-row.noshow .appt-date{color:#8F3E36;text-decoration:none;}
   .icon-group{display:flex;flex-direction:column;gap:6px;}
   .whatsapp-btn{
     display:inline-flex;align-items:center;gap:5px;background:#25D366;color:#fff;
@@ -3306,15 +3308,16 @@ function renderAppointments(){
   }
   sorted.forEach(a => {
     const row = document.createElement('div');
-    row.className = 'appt-row' + (a.done ? ' done' : '');
+    row.className = 'appt-row' + (a.done ? ' done' : '') + (a.noShow ? ' noshow' : '');
     const waUrl = whatsappReminderUrl(currentClient, a);
     row.innerHTML = `
-      <span class="appt-date">${formatDate(a.date)} · ${a.time}–${getEffectiveEndTime(a)}${a.nota ? ' — ' + escapeHtml(a.nota) : ''}</span>
+      <span class="appt-date">${formatDate(a.date)} · ${a.time}–${getEffectiveEndTime(a)}${a.nota ? ' — ' + escapeHtml(a.nota) : ''}${a.noShow ? ' · 🚫 Não apareceu' : ''}</span>
       <div class="icon-group">
         <button class="icon-btn" title="Editar" onclick="editAppointment('${currentClient.id}', ${a._idx})">✏️</button>
         ${waUrl ? `<a class="icon-btn icon-btn-whatsapp" href="${waUrl}" target="_blank" title="Confirmar por WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
         ${!a.done ? `<button class="icon-btn icon-btn-paid" title="Marcar como paga" onclick="openMarkPaidModal('${currentClient.id}', ${a._idx})">💰</button>` : ''}
         <button class="icon-btn" title="Concluída" onclick="toggleAppointmentDone(${a._idx})">${a.done ? '↺' : '✓'}</button>
+        ${!a.done ? `<button class="icon-btn icon-btn-noshow" title="Cliente não apareceu" onclick="markNoShow('${currentClient.id}', ${a._idx})">🚫</button>` : ''}
         <button class="icon-btn" title="Eliminar" onclick="removeAppointment(${a._idx})">🗑</button>
       </div>
     `;
