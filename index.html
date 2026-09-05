@@ -5000,14 +5000,27 @@ function getCurrentNiche(){
   return NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
 }
 
+let activeNicheEpoch = 0;
+
 async function setNiche(id){
   localStorage.setItem(NICHE_KEY, id);
+  activeNicheEpoch++; // qualquer ciclo de sincronização já em curso do nicho anterior vai detetar isto e abortar
 
-  // Pára qualquer sincronização em curso do nicho anterior antes de trocar de base de dados
+  // Pára qualquer sincronização agendada do nicho anterior antes de trocar de base de dados
   if(driveSyncTimer){ clearInterval(driveSyncTimer); driveSyncTimer = null; }
+
+  // Espera que um eventual ciclo de sincronização já a meio (a meio de ler/escrever dados)
+  // termine por completo, antes de fechar a base de dados atual — evita que esse ciclo
+  // acabe por escrever dados do nicho antigo já dentro da base de dados do nicho novo.
+  let waited = 0;
+  while(driveSyncInProgress && waited < 5000){
+    await new Promise(r => setTimeout(r, 100));
+    waited += 100;
+  }
 
   applyNicheUI();
   await reloadDatabaseForNiche();
+  preparedClientCache.clear();
 
   // Cada nicho tem as suas próprias preferências de sincronização — recarrega-as
   driveSyncEnabled = localStorage.getItem(nicheKey('mtb_drive_sync_enabled')) === 'true';
@@ -5929,14 +5942,18 @@ async function driveSyncCycle(){
   if(!driveSyncEnabled || !driveAccessToken) return;
   if(driveSyncInProgress) return; // evita que dois ciclos corram ao mesmo tempo e se pisem
   driveSyncInProgress = true;
+  const myEpoch = activeNicheEpoch; // se o nicho mudar a meio deste ciclo, abortamos sem escrever nada
   try {
     await ensureDriveFolder();
+    if(myEpoch !== activeNicheEpoch) return;
     // Primeiro vai buscar e junta os dados que já existem noutros aparelhos —
     // só depois envia o estado deste aparelho. Isto evita que um aparelho novo,
     // ainda sem dados locais, "publique" um estado vazio antes de ter recebido
     // o que já existia.
     const hasChanges = await mergeAndApplyRemoteData();
+    if(myEpoch !== activeNicheEpoch) return; // o nicho mudou entretanto — não escreve mais nada
     await uploadDeviceSnapshot();
+    if(myEpoch !== activeNicheEpoch) return;
     lastSyncAt = Date.now();
     lastSyncError = null;
     if(hasChanges) refreshVisibleScreen();
@@ -5944,6 +5961,7 @@ async function driveSyncCycle(){
     const statusEl = document.getElementById('drivesync-status');
     if(statusEl) statusEl.textContent = `🟢 Ligado — última sincronização: ${lastSyncLabel()}`;
   } catch(err){
+    if(myEpoch !== activeNicheEpoch) return; // já não é relevante para o nicho atual
     console.warn('Erro na sincronização com o Drive:', err);
     lastSyncError = (err && err.message) ? err.message : String(err);
     const statusEl = document.getElementById('drivesync-status');
