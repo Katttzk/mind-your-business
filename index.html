@@ -18,7 +18,9 @@
 <script>
 (function(){
   try {
-    var t = localStorage.getItem('mtb_theme');
+    var niche = localStorage.getItem('mtb_niche') || 'grooming';
+    var themeKeyName = niche === 'grooming' ? 'mtb_theme' : ('mtb_theme_' + niche);
+    var t = localStorage.getItem(themeKeyName);
     if(t && t !== 'original') document.documentElement.setAttribute('data-theme', t);
   } catch(e){}
 })();
@@ -1211,8 +1213,23 @@
 
 <script>
 // ---------- Armazenamento (IndexedDB) ----------
+// Devolve o ID do nicho ativo (grooming por defeito, para nunca quebrar instalações já existentes)
+function currentNicheId(){
+  return localStorage.getItem('mtb_niche') || 'grooming';
+}
+
+// Gera uma chave de armazenamento separada por nicho — o grooming mantém sempre a chave
+// original (sem sufixo), para ninguém perder dados já guardados antes desta funcionalidade
+// existir. Qualquer outro nicho (ex: estética) ganha uma chave própria, isolada.
+function nicheKey(baseKey){
+  const niche = currentNicheId();
+  return niche === 'grooming' ? baseKey : (baseKey + '_' + niche);
+}
+
 let db;
-const DB_NAME = 'fichas_grooming_db';
+function getDbName(){
+  return nicheKey('fichas_grooming_db');
+}
 const STORE = 'clientes';
 const GROOMER_STORE = 'groomers';
 const DAYNOTE_STORE = 'dayNotes';
@@ -1223,7 +1240,7 @@ const GCAL_HANDLED_STORE = 'gcalHandled';
 
 function openDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 7);
+    const req = indexedDB.open(getDbName(), 7);
     req.onupgradeneeded = (e) => {
       const d = e.target.result;
       if(!d.objectStoreNames.contains(STORE)){
@@ -1251,6 +1268,18 @@ function openDB(){
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
     req.onerror = (e) => reject(e);
   });
+}
+
+async function reloadDatabaseForNiche(){
+  if(db){
+    try { db.close(); } catch(e){}
+    db = null;
+  }
+  // Reinicia também o estado de sincronização com o Drive em memória — cada nicho
+  // tem a sua própria pasta e ficheiros, nunca deve reaproveitar os do nicho anterior.
+  driveFolderId = localStorage.getItem(nicheKey('mtb_drive_folder_id')) || null;
+  gcalEventsCache = { fetchedAt: 0, events: [] };
+  await openDB();
 }
 
 function getAllClients(){
@@ -2705,14 +2734,14 @@ const ANAMNESE_DECLARATIONS_KEY = 'mtb_anamnese_declarations';
 
 function getAnamneseDeclarations(){
   try {
-    const stored = JSON.parse(localStorage.getItem(ANAMNESE_DECLARATIONS_KEY));
+    const stored = JSON.parse(localStorage.getItem(nicheKey('mtb_anamnese_declarations')));
     if(Array.isArray(stored) && stored.length > 0) return stored;
   } catch(e){}
   return getCurrentNiche().defaultDeclarations.slice();
 }
 
 function saveAnamneseDeclarations(list){
-  localStorage.setItem(ANAMNESE_DECLARATIONS_KEY, JSON.stringify(list));
+  localStorage.setItem(nicheKey('mtb_anamnese_declarations'), JSON.stringify(list));
 }
 
 async function openAnamneseModal(){
@@ -4737,12 +4766,12 @@ function showTab(tab){
 }
 
 // ---------- Personalização da marca (logótipo próprio) ----------
-const BRAND_LOGO_KEY = 'mtb_business_logo';
-const BRAND_NAME_KEY = 'mtb_business_name';
+function BRAND_LOGO_KEY(){ return nicheKey('mtb_business_logo'); }
+function BRAND_NAME_KEY(){ return nicheKey('mtb_business_name'); }
 
 function renderHeaderBranding(){
-  const logo = localStorage.getItem(BRAND_LOGO_KEY);
-  const name = localStorage.getItem(BRAND_NAME_KEY);
+  const logo = localStorage.getItem(BRAND_LOGO_KEY());
+  const name = localStorage.getItem(BRAND_NAME_KEY());
   const defaultLogo = document.getElementById('app-logo-default');
   const customLogo = document.getElementById('app-logo-custom');
 
@@ -4764,8 +4793,8 @@ function renderHeaderBranding(){
 }
 
 function loadBrandingSettingsIntoForm(){
-  const logo = localStorage.getItem(BRAND_LOGO_KEY);
-  const name = localStorage.getItem(BRAND_NAME_KEY);
+  const logo = localStorage.getItem(BRAND_LOGO_KEY());
+  const name = localStorage.getItem(BRAND_NAME_KEY());
   const preview = document.getElementById('branding-logo-preview');
   if(logo){
     preview.src = logo;
@@ -4782,7 +4811,7 @@ async function handleBrandingLogoUpload(e){
   if(!file) return;
   const dataUrl = await compressImageFile(file, 400, 0.8);
   try {
-    localStorage.setItem(BRAND_LOGO_KEY, dataUrl);
+    localStorage.setItem(BRAND_LOGO_KEY(), dataUrl);
   } catch(err){
     alert('A imagem é demasiado grande para guardar. Tenta uma foto mais pequena.');
     return;
@@ -4795,17 +4824,17 @@ async function handleBrandingLogoUpload(e){
 function saveBrandingName(value){
   const name = value.trim();
   if(name){
-    localStorage.setItem(BRAND_NAME_KEY, name);
+    localStorage.setItem(BRAND_NAME_KEY(), name);
   } else {
-    localStorage.removeItem(BRAND_NAME_KEY);
+    localStorage.removeItem(BRAND_NAME_KEY());
   }
   renderHeaderBranding();
 }
 
 function resetBranding(){
   if(!confirm('Repor o logótipo predefinido da aplicação?')) return;
-  localStorage.removeItem(BRAND_LOGO_KEY);
-  localStorage.removeItem(BRAND_NAME_KEY);
+  localStorage.removeItem(BRAND_LOGO_KEY());
+  localStorage.removeItem(BRAND_NAME_KEY());
   loadBrandingSettingsIntoForm();
   renderHeaderBranding();
 }
@@ -4868,9 +4897,43 @@ function getCurrentNiche(){
   return NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
 }
 
-function setNiche(id){
+async function setNiche(id){
   localStorage.setItem(NICHE_KEY, id);
+
+  // Pára qualquer sincronização em curso do nicho anterior antes de trocar de base de dados
+  if(driveSyncTimer){ clearInterval(driveSyncTimer); driveSyncTimer = null; }
+
   applyNicheUI();
+  await reloadDatabaseForNiche();
+
+  // Cada nicho tem as suas próprias preferências de sincronização — recarrega-as
+  driveSyncEnabled = localStorage.getItem(nicheKey('mtb_drive_sync_enabled')) === 'true';
+  gcalSyncEnabled = localStorage.getItem(nicheKey('mtb_gcal_sync_enabled')) === 'true';
+  lastSyncAt = null;
+  lastSyncError = null;
+
+  clients = [];
+  await getAllClients().then(list => { clients = list; });
+  loadBrandingSettingsIntoForm();
+  renderHeaderBranding();
+  updateAgendaTabBadge();
+
+  // Volta a mostrar o separador onde já estavas, agora com os dados do novo nicho
+  let activeTab = 'agenda';
+  if(document.getElementById('list-screen').classList.contains('active')) activeTab = 'list';
+  else if(document.getElementById('business-screen').classList.contains('active')) activeTab = 'business';
+  else if(document.getElementById('pricing-screen').classList.contains('active')) activeTab = 'pricing';
+  showTab(activeTab);
+
+  if(driveSyncEnabled && driveAccessToken){
+    try {
+      await ensureDriveFolder();
+      startDriveSyncLoop();
+    } catch(err){
+      console.warn('Não foi possível retomar a sincronização para este nicho:', err);
+    }
+  }
+
   renderSettingsModal();
 }
 
@@ -4904,7 +4967,7 @@ function applyNicheUI(){
   if(searchInput) searchInput.placeholder = n.searchPlaceholder;
 }
 
-const THEME_KEY = 'mtb_theme';
+function THEME_KEY(){ return nicheKey('mtb_theme'); }
 
 const THEME_OPTIONS = [
   { id: 'original', label: 'Sóbrio (original)', colors: ['#FAF7F2', '#2F4B45', '#D4A24C'] },
@@ -4947,7 +5010,7 @@ function renderSettingsModal(){
           <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
         </div>
         <h3 style="margin-top:10px;">Tipo de negócio</h3>
-        <div class="hint" style="margin:6px 0 12px;">Adapta os nomes dos campos da ficha (ex: "Dados do animal" vs "Dados do cliente") ao teu tipo de negócio. Os teus dados não são alterados nem apagados ao mudares — é só uma questão de vocabulário.</div>
+        <div class="hint" style="margin:6px 0 12px;">Adapta os nomes dos campos da ficha ao teu tipo de negócio (ex: "Dados do animal" vs "Dados do cliente"). <strong>Cada nicho tem os seus próprios dados, totalmente separados</strong> — clientes, agenda, pagamentos, preços, tema e sincronização com o Drive. Nada é apagado ao mudares; se voltares a este nicho mais tarde, encontras tudo como estava.</div>
         <div class="theme-option-list">
           ${NICHE_OPTIONS.map(n => `
             <div class="theme-card${n.id === current ? ' selected' : ''}" onclick="setNiche('${n.id}')">
@@ -4959,7 +5022,7 @@ function renderSettingsModal(){
       </div>
     `;
   } else if(settingsView === 'themes'){
-    const current = localStorage.getItem(THEME_KEY) || 'original';
+    const current = localStorage.getItem(THEME_KEY()) || 'original';
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -5007,7 +5070,7 @@ function renderSettingsModal(){
         </div>
         <h3 style="margin-top:10px;">🔄 Sincronização Google Drive</h3>
         <div class="hint" style="margin:6px 0 12px;">
-          Liga este aparelho à tua conta Google Drive para os dados serem partilhados automaticamente com os teus outros aparelhos (atualiza a cada 5 segundos). Os dados ficam guardados numa pasta chamada "MindYourBusiness-Sync" no teu próprio Google Drive.
+          Liga este aparelho à tua conta Google Drive para os dados serem partilhados automaticamente com os teus outros aparelhos (atualiza a cada 5 segundos). Os dados deste nicho (${escapeHtml(getCurrentNiche().label)}) ficam guardados numa pasta própria chamada "${DRIVE_FOLDER_NAME()}" no teu Google Drive — cada nicho tem a sua pasta separada.
         </div>
         <div id="drivesync-status" class="hint" style="margin-bottom:10px;font-weight:600;">
           ${driveSyncEnabled
@@ -5046,7 +5109,7 @@ function renderSettingsModal(){
       </div>
     `;
   } else {
-    const currentTheme = THEME_OPTIONS.find(t => t.id === (localStorage.getItem(THEME_KEY) || 'original'));
+    const currentTheme = THEME_OPTIONS.find(t => t.id === (localStorage.getItem(THEME_KEY()) || 'original'));
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -5102,7 +5165,7 @@ function renderSettingsModal(){
 }
 
 function applyTheme(id){
-  localStorage.setItem(THEME_KEY, id);
+  localStorage.setItem(THEME_KEY(), id);
   if(id === 'original'){
     document.documentElement.removeAttribute('data-theme');
   } else {
@@ -5133,9 +5196,9 @@ async function exportAllData(){
       exportedAt: new Date().toISOString(),
       clientes, groomers, dayNotes, shopping, expenses, precos, gcalHandled,
       settings: {
-        businessLogo: localStorage.getItem(BRAND_LOGO_KEY) || null,
-        businessName: localStorage.getItem(BRAND_NAME_KEY) || null,
-        theme: localStorage.getItem(THEME_KEY) || null
+        businessLogo: localStorage.getItem(BRAND_LOGO_KEY()) || null,
+        businessName: localStorage.getItem(BRAND_NAME_KEY()) || null,
+        theme: localStorage.getItem(THEME_KEY()) || null
       }
     };
 
@@ -5187,11 +5250,11 @@ async function handleImportFile(event){
     for(const g of (data.gcalHandled || [])) await putGcalHandledRaw(g);
 
     if(data.settings){
-      if(data.settings.businessLogo) localStorage.setItem(BRAND_LOGO_KEY, data.settings.businessLogo);
-      else localStorage.removeItem(BRAND_LOGO_KEY);
-      if(data.settings.businessName) localStorage.setItem(BRAND_NAME_KEY, data.settings.businessName);
-      else localStorage.removeItem(BRAND_NAME_KEY);
-      if(data.settings.theme) localStorage.setItem(THEME_KEY, data.settings.theme);
+      if(data.settings.businessLogo) localStorage.setItem(BRAND_LOGO_KEY(), data.settings.businessLogo);
+      else localStorage.removeItem(BRAND_LOGO_KEY());
+      if(data.settings.businessName) localStorage.setItem(BRAND_NAME_KEY(), data.settings.businessName);
+      else localStorage.removeItem(BRAND_NAME_KEY());
+      if(data.settings.theme) localStorage.setItem(THEME_KEY(), data.settings.theme);
     }
 
     alert('Dados importados com sucesso! A aplicação vai recarregar.');
@@ -5208,7 +5271,7 @@ async function handleImportFile(event){
 const GOOGLE_CLIENT_ID = '695642606391-adoe63hlatn4tgr35v0kce3phf8in0bg.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
-const DRIVE_FOLDER_NAME = 'MindYourBusiness-Sync';
+function DRIVE_FOLDER_NAME(){ return nicheKey('MindYourBusiness-Sync'); }
 const SYNC_INTERVAL_MS = 5000;
 
 // ---------- Sincronização de imagens (fotos guardadas como ficheiros próprios no Drive) ----------
@@ -5242,7 +5305,7 @@ function hashString(str){
 
 async function uploadImageIfNeeded(dataUrl){
   if(!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) return null;
-  const cache = JSON.parse(localStorage.getItem('mtb_image_upload_cache') || '{}');
+  const cache = JSON.parse(localStorage.getItem(nicheKey('mtb_image_upload_cache')) || '{}');
   const key = hashString(dataUrl);
   if(cache[key]) return cache[key];
 
@@ -5264,7 +5327,7 @@ async function uploadImageIfNeeded(dataUrl){
     const data = await res.json();
     if(data && isValidDriveId(data.id)){
       cache[key] = data.id;
-      localStorage.setItem('mtb_image_upload_cache', JSON.stringify(cache));
+      localStorage.setItem(nicheKey('mtb_image_upload_cache'), JSON.stringify(cache));
       return data.id;
     }
   } catch(err){
@@ -5349,10 +5412,10 @@ const SYNC_STORES = [
   { name: GCAL_HANDLED_STORE, keyField: 'id', getAll: () => getAllGcalHandled(), putRaw: putGcalHandledRaw, del: deleteGcalHandledDB }
 ];
 
-let driveSyncEnabled = localStorage.getItem('mtb_drive_sync_enabled') === 'true';
-let gcalSyncEnabled = localStorage.getItem('mtb_gcal_sync_enabled') === 'true';
+let driveSyncEnabled = localStorage.getItem(nicheKey('mtb_drive_sync_enabled')) === 'true';
+let gcalSyncEnabled = localStorage.getItem(nicheKey('mtb_gcal_sync_enabled')) === 'true';
 let driveAccessToken = null;
-let driveFolderId = localStorage.getItem('mtb_drive_folder_id') || null;
+let driveFolderId = localStorage.getItem(nicheKey('mtb_drive_folder_id')) || null;
 let driveTokenClient = null;
 let driveSyncTimer = null;
 let lastSyncAt = null;
@@ -5386,9 +5449,9 @@ function refreshVisibleScreen(){
 }
 
 function recordTombstone(storeName, recordId){
-  const tombstones = JSON.parse(localStorage.getItem('mtb_tombstones') || '[]');
+  const tombstones = JSON.parse(localStorage.getItem(nicheKey('mtb_tombstones')) || '[]');
   tombstones.push({ store: storeName, recordId: String(recordId), deletedAt: Date.now() });
-  localStorage.setItem('mtb_tombstones', JSON.stringify(tombstones.slice(-500)));
+  localStorage.setItem(nicheKey('mtb_tombstones'), JSON.stringify(tombstones.slice(-500)));
 }
 
 function connectGoogleDrive(){
@@ -5410,7 +5473,7 @@ function connectGoogleDrive(){
       }
       driveAccessToken = response.access_token;
       driveSyncEnabled = true;
-      localStorage.setItem('mtb_drive_sync_enabled', 'true');
+      localStorage.setItem(nicheKey('mtb_drive_sync_enabled'), 'true');
       try {
         await ensureDriveFolder();
         startDriveSyncLoop();
@@ -5428,7 +5491,7 @@ function disconnectGoogleDrive(){
   if(!confirm('Desligar a sincronização com o Google Drive neste aparelho? Os dados guardados no Drive não são apagados.')) return;
   driveSyncEnabled = false;
   driveAccessToken = null;
-  localStorage.setItem('mtb_drive_sync_enabled', 'false');
+  localStorage.setItem(nicheKey('mtb_drive_sync_enabled'), 'false');
   if(driveSyncTimer) clearInterval(driveSyncTimer);
   driveSyncTimer = null;
   renderSettingsModal();
@@ -5442,7 +5505,7 @@ function toggleGoogleCalendarSync(){
 
   if(gcalSyncEnabled){
     gcalSyncEnabled = false;
-    localStorage.setItem('mtb_gcal_sync_enabled', 'false');
+    localStorage.setItem(nicheKey('mtb_gcal_sync_enabled'), 'false');
     gcalEventsCache = { fetchedAt: 0, events: [] };
     renderSettingsModal();
     refreshVisibleScreen();
@@ -5465,7 +5528,7 @@ function toggleGoogleCalendarSync(){
       }
       driveAccessToken = response.access_token;
       gcalSyncEnabled = true;
-      localStorage.setItem('mtb_gcal_sync_enabled', 'true');
+      localStorage.setItem(nicheKey('mtb_gcal_sync_enabled'), 'true');
       renderSettingsModal();
       renderAgendaBody();
     }
@@ -5508,11 +5571,11 @@ async function ensureDriveFolder(){
   // Auto-cura: se ficou guardada uma pasta inválida de uma tentativa anterior com erro, ignora-a.
   if(driveFolderId && !isValidDriveId(driveFolderId)){
     driveFolderId = null;
-    localStorage.removeItem('mtb_drive_folder_id');
+    localStorage.removeItem(nicheKey('mtb_drive_folder_id'));
   }
   if(driveFolderId) return driveFolderId;
 
-  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME()}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
   const searchData = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id,name,createdTime)`);
 
   if(searchData && searchData.files && searchData.files.length > 0){
@@ -5523,7 +5586,7 @@ async function ensureDriveFolder(){
     const createData = await driveFetchJson('https://www.googleapis.com/drive/v3/files', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' })
+      body: JSON.stringify({ name: DRIVE_FOLDER_NAME(), mimeType: 'application/vnd.google-apps.folder' })
     });
     if(!createData || !isValidDriveId(createData.id)){
       throw new Error('A Google não devolveu um ID de pasta válido ao criar a pasta de sincronização.');
@@ -5536,7 +5599,7 @@ async function ensureDriveFolder(){
     throw new Error('Não foi possível confirmar a pasta de sincronização no Drive.');
   }
 
-  localStorage.setItem('mtb_drive_folder_id', driveFolderId);
+  localStorage.setItem(nicheKey('mtb_drive_folder_id'), driveFolderId);
   return driveFolderId;
 }
 
@@ -5563,8 +5626,8 @@ async function resetDriveSyncConnection(){
         return;
       }
       driveAccessToken = response.access_token;
-      localStorage.removeItem('mtb_drive_folder_id');
-      localStorage.removeItem('mtb_own_drive_file_id');
+      localStorage.removeItem(nicheKey('mtb_drive_folder_id'));
+      localStorage.removeItem(nicheKey('mtb_own_drive_file_id'));
       driveFolderId = null;
 
       try {
@@ -5604,17 +5667,17 @@ async function uploadDeviceSnapshot(){
       payload.stores[s.name] = records;
     }
   }
-  payload.tombstones = JSON.parse(localStorage.getItem('mtb_tombstones') || '[]');
+  payload.tombstones = JSON.parse(localStorage.getItem(nicheKey('mtb_tombstones')) || '[]');
 
   const fileName = `device-${deviceId}.json`;
-  let fileId = localStorage.getItem('mtb_own_drive_file_id');
+  let fileId = localStorage.getItem(nicheKey('mtb_own_drive_file_id'));
   if(fileId && !isValidDriveId(fileId)){
     fileId = null;
-    localStorage.removeItem('mtb_own_drive_file_id');
+    localStorage.removeItem(nicheKey('mtb_own_drive_file_id'));
   }
   if(!fileId){
     fileId = await findOwnDeviceFileId();
-    if(isValidDriveId(fileId)) localStorage.setItem('mtb_own_drive_file_id', fileId);
+    if(isValidDriveId(fileId)) localStorage.setItem(nicheKey('mtb_own_drive_file_id'), fileId);
   }
 
   const metadata = fileId ? { name: fileName } : { name: fileName, parents: [driveFolderId] };
@@ -5637,7 +5700,7 @@ async function uploadDeviceSnapshot(){
     if(!data || !isValidDriveId(data.id)){
       throw new Error('A Google não confirmou a criação do ficheiro de sincronização deste aparelho.');
     }
-    localStorage.setItem('mtb_own_drive_file_id', data.id);
+    localStorage.setItem(nicheKey('mtb_own_drive_file_id'), data.id);
   }
 }
 
@@ -5664,7 +5727,7 @@ async function mergeAndApplyRemoteData(){
     } catch(e){ console.warn('Falha ao ler ficheiro remoto', f.name, e); }
   }
 
-  let allTombstones = JSON.parse(localStorage.getItem('mtb_tombstones') || '[]');
+  let allTombstones = JSON.parse(localStorage.getItem(nicheKey('mtb_tombstones')) || '[]');
   remoteSnapshots.forEach(snap => (snap.tombstones || []).forEach(t => allTombstones.push(t)));
   const tombstoneMap = {};
   allTombstones.forEach(t => {
