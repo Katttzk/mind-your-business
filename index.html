@@ -209,10 +209,21 @@
   .client-card.has-noshow{
     background:#FDF1F0;border:1.5px solid #E5A9A3;
   }
+  .client-card.has-warning{
+    background:#FEF8E4;border:1.5px solid #E8CE7B;
+  }
+  .client-card.has-warning-stripe{
+    box-shadow:inset 4px 0 0 #D9A82A;
+  }
   .noshow-badge{
     display:inline-flex;align-items:center;gap:3px;background:#E4572E;color:#fff;
     font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:3px;
   }
+  .warning-badge{
+    display:inline-flex;align-items:center;gap:3px;background:#D9A82A;color:#fff;
+    font-size:.66rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-top:3px;
+  }
+  .badge-row{display:flex;flex-wrap:wrap;gap:5px;}
   .noshow-form-banner{
     background:#FDF1F0;border:1.5px solid #E5A9A3;border-radius:12px;padding:12px 14px;
     margin:0 0 14px;font-size:.86rem;color:#8F3E36;
@@ -993,6 +1004,14 @@
       <textarea id="f-comportamento" placeholder="Ex: nervoso com o secador, tranquilo, precisa de pausas..."></textarea>
       <label>Observações</label>
       <textarea id="f-observacoes" placeholder="Alergias, cuidados especiais, notas gerais..."></textarea>
+
+      <label style="margin-top:12px;">⚠️ Aviso importante</label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="f-aviso-ativo" onchange="document.getElementById('f-aviso-texto').style.display = this.checked ? 'block' : 'none';">
+        <span>⚠️ Este animal precisa de atenção especial</span>
+      </label>
+      <input type="text" id="f-aviso-texto" placeholder="Ex: pulgas, agressivo, morde durante a secagem..." style="display:none;margin-top:6px;">
+      <div class="hint" style="margin-top:4px;">Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.</div>
     </div>
 
     <div class="form-section" id="payments-section" style="display:none;">
@@ -2162,6 +2181,9 @@ function clearForm(){
   ['f-nome','f-raca','f-idade','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-nif'].forEach(id=>{
     document.getElementById(id).value = '';
   });
+  document.getElementById('f-aviso-ativo').checked = false;
+  document.getElementById('f-aviso-texto').value = '';
+  document.getElementById('f-aviso-texto').style.display = 'none';
   currentMainPhoto = null;
   const img = document.getElementById('main-photo-preview');
   img.src = '';
@@ -2182,6 +2204,9 @@ function fillForm(c){
   document.getElementById('f-pedidos').value = c.pedidos || '';
   document.getElementById('f-comportamento').value = c.comportamento || '';
   document.getElementById('f-observacoes').value = c.observacoes || '';
+  document.getElementById('f-aviso-ativo').checked = !!c.temAviso;
+  document.getElementById('f-aviso-texto').value = c.avisoTexto || '';
+  document.getElementById('f-aviso-texto').style.display = c.temAviso ? 'block' : 'none';
   document.getElementById('f-tutor-nome').value = c.tutorNome || '';
   document.getElementById('f-tutor-contacto').value = c.tutorContacto || '';
   document.getElementById('f-tutor-nif').value = c.tutorNif || '';
@@ -2933,6 +2958,8 @@ async function saveClient(silent){
   currentClient.pedidos = document.getElementById('f-pedidos').value.trim();
   currentClient.comportamento = document.getElementById('f-comportamento').value.trim();
   currentClient.observacoes = document.getElementById('f-observacoes').value.trim();
+  currentClient.temAviso = document.getElementById('f-aviso-ativo').checked;
+  currentClient.avisoTexto = document.getElementById('f-aviso-texto').value.trim();
   currentClient.tutorNome = document.getElementById('f-tutor-nome').value.trim();
   currentClient.tutorContacto = document.getElementById('f-tutor-contacto').value.trim();
   currentClient.tutorNif = document.getElementById('f-tutor-nif').value.trim();
@@ -3069,18 +3096,29 @@ async function renderList(){
   filtered.forEach(c => {
     const card = document.createElement('div');
     const numFaltas = (c.faltas || []).length;
-    card.className = 'client-card' + (numFaltas > 0 ? ' has-noshow' : '');
+    const hasWarning = !!c.temAviso;
+    let cardClass = 'client-card';
+    if(numFaltas > 0) cardClass += ' has-noshow';
+    else if(hasWarning) cardClass += ' has-warning';
+    if(numFaltas > 0 && hasWarning) cardClass += ' has-warning-stripe';
+    card.className = cardClass;
     const photoHtml = c.foto
       ? `<img src="${c.foto}">`
       : `<div class="ph-placeholder">🐾</div>`;
     const wa = whatsappUrl(c.tutorContacto);
     const tel = telUrl(c.tutorContacto);
+    const warningBadges = hasWarning
+      ? `<span class="warning-badge">⚠️ ${escapeHtml(c.avisoTexto || 'Atenção especial')}</span>`
+      : '';
     card.innerHTML = `
       ${photoHtml}
       <div class="client-info">
         <div class="name">${escapeHtml(c.nome || 'Sem nome')}</div>
         <div class="sub">${escapeHtml(c.raca || '')}${c.tutorNome ? ' · ' + escapeHtml(c.tutorNome) : ''}</div>
-        ${numFaltas > 0 ? `<div><span class="noshow-badge">🚫 ${numFaltas} falta${numFaltas === 1 ? '' : 's'}</span></div>` : ''}
+        <div class="badge-row">
+          ${numFaltas > 0 ? `<span class="noshow-badge">🚫 ${numFaltas} falta${numFaltas === 1 ? '' : 's'}</span>` : ''}
+          ${warningBadges}
+        </div>
       </div>
       <div class="card-actions">
         ${wa ? `<a class="icon-btn icon-btn-whatsapp" href="${wa}" onclick="event.stopPropagation();" target="_blank" title="Abrir WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
