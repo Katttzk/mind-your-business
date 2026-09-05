@@ -3109,6 +3109,7 @@ async function saveClient(silent){
     return;
   }
 
+  const wasNew = document.getElementById('gallery-section').style.display === 'none';
   await putClient(currentClient);
 
   if(!silent){
@@ -3118,7 +3119,20 @@ async function saveClient(silent){
     document.getElementById('incidents-section').style.display = 'block';
     document.getElementById('payments-section').style.display = 'block';
     document.getElementById('anamnese-section').style.display = 'block';
-    closeForm();
+
+    if(wasNew){
+      // Em vez de fechar logo, mantém a ficha aberta — assim vês imediatamente
+      // as secções de histórico, ocorrências, marcações e anamnese/consentimento,
+      // já prontas a usar, sem teres de voltar a abrir a ficha.
+      renderAppointments();
+      renderIncidentList();
+      renderPayments();
+      renderAnamneseList();
+      window.scrollTo(0,0);
+      alert(`Ficha de ${escapeHtml(currentClient.nome)} criada! Já podes adicionar marcações, histórico, ocorrências e anamnese/consentimento aqui mesmo, mais abaixo nesta ficha.`);
+    } else {
+      closeForm();
+    }
   }
 }
 
@@ -4863,6 +4877,7 @@ const NICHE_OPTIONS = [
     sectionAnimal: 'Dados do animal',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: Toby',
+    businessNamePlaceholder: 'Ex: Doggy Style Grooming',
     showRaca: true,
     racaPlaceholder: 'Ex: Bichon Frisé',
     showPeso: true,
@@ -4918,7 +4933,7 @@ const NICHE_OPTIONS = [
     appTitle: 'Mind your Business',
     appTagline: 'for Aesthetics',
     appEmoji: '💅',
-    emptyStateIcon: '💄',
+    emptyStateIcon: '⭐',
     placeholderIcon: '✨',
     reminderEmoji: '💅',
     fallbackClientName: 'o(a) seu/sua cliente',
@@ -4928,6 +4943,7 @@ const NICHE_OPTIONS = [
     sectionAnimal: 'Dados do cliente',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: Mariana Silva',
+    businessNamePlaceholder: 'Ex: Glow Beauty Studio',
     showRaca: false,
     racaPlaceholder: '',
     showPeso: false,
@@ -5075,6 +5091,7 @@ function applyNicheUI(){
 
   // Tabela de preços
   setPlaceholder('pricing-search', n.pricingSearchPlaceholder);
+  setPlaceholder('branding-name-input', n.businessNamePlaceholder);
 
   const searchInput = document.getElementById('search-input');
   if(searchInput) searchInput.placeholder = n.searchPlaceholder;

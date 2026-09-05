@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v89-niche-full-vocab';
+const CACHE_NAME = 'fichas-tosquia-v90-newclient-flow';
 const FILES_TO_CACHE = [
   './',
   './index.html',
