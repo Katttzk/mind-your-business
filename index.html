@@ -851,8 +851,8 @@
   <div class="wrap">
     <div class="header-top-row">
       <div class="app-logo" id="app-logo-default">
-        <div class="logo-main"><span class="paw">🐾</span>Mind your Business</div>
-        <div class="logo-sub">for Groomers</div>
+        <div class="logo-main"><span class="paw" id="app-logo-emoji">🐾</span><span id="app-logo-title">Mind your Business</span></div>
+        <div class="logo-sub" id="app-logo-tagline">for Groomers</div>
       </div>
       <div class="app-logo-custom" id="app-logo-custom" style="display:none;">
         <img id="custom-logo-img" class="custom-logo-img" src="" alt="">
@@ -860,7 +860,7 @@
       </div>
       <button class="settings-gear-btn" onclick="openSettingsModal()" title="Definições de aparência">⚙️</button>
     </div>
-    <p style="margin-top:6px;">As tuas fichas de cliente, sempre disponíveis — mesmo sem internet</p>
+    <p style="margin-top:6px;" id="app-subtitle">As tuas fichas de cliente, sempre disponíveis — mesmo sem internet</p>
   </div>
 </header>
 
@@ -1075,11 +1075,11 @@
     </div>
 
     <div class="form-section">
-      <h3>Dados do animal</h3>
-      <label>Nome</label>
+      <h3 id="section-title-animal">Dados do animal</h3>
+      <label id="label-nome-animal">Nome</label>
       <input type="text" id="f-nome" placeholder="Ex: Toby" oninput="document.getElementById('form-animal-name').textContent = this.value.trim() || 'Sem nome';">
       <div class="row2">
-        <div>
+        <div id="field-raca-wrap">
           <label>Raça</label>
           <input type="text" id="f-raca" placeholder="Ex: Bichon Frisé">
         </div>
@@ -1088,8 +1088,10 @@
           <input type="text" id="f-idade" placeholder="Ex: 3 anos">
         </div>
       </div>
-      <label>Peso</label>
-      <input type="text" id="f-peso" placeholder="Ex: 8,5 kg">
+      <div id="field-peso-wrap">
+        <label>Peso</label>
+        <input type="text" id="f-peso" placeholder="Ex: 8,5 kg">
+      </div>
       <label>Data de nascimento</label>
       <input type="date" id="f-nascimento">
       <label>Recorrência de marcação</label>
@@ -1104,7 +1106,7 @@
       </select>
       <label>Pedidos habituais</label>
       <textarea id="f-pedidos" placeholder="Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas..."></textarea>
-      <label>Comportamento</label>
+      <label id="label-comportamento">Comportamento</label>
       <textarea id="f-comportamento" placeholder="Ex: nervoso com o secador, tranquilo, precisa de pausas..."></textarea>
       <label>Observações</label>
       <textarea id="f-observacoes" placeholder="Alergias, cuidados especiais, notas gerais..."></textarea>
@@ -1112,10 +1114,10 @@
       <label style="margin-top:12px;">⚠️ Aviso importante</label>
       <label class="checkbox-row">
         <input type="checkbox" id="f-aviso-ativo" onchange="document.getElementById('f-aviso-texto').style.display = this.checked ? 'block' : 'none';">
-        <span>⚠️ Este animal precisa de atenção especial</span>
+        <span id="label-aviso-checkbox">⚠️ Este animal precisa de atenção especial</span>
       </label>
       <input type="text" id="f-aviso-texto" placeholder="Ex: pulgas, agressivo, morde durante a secagem..." style="display:none;margin-top:6px;">
-      <div class="hint" style="margin-top:4px;">Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.</div>
+      <div class="hint" style="margin-top:4px;" id="hint-aviso">Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.</div>
     </div>
 
     <div class="form-section" id="payments-section" style="display:none;">
@@ -1141,10 +1143,12 @@
       <div id="payment-history" style="margin-top:10px;display:none;"></div>
     </div>
 
-    <div class="form-section">
-      <h3>Tutor</h3>
-      <label>Nome do tutor</label>
-      <input type="text" id="f-tutor-nome" placeholder="Nome completo">
+    <div class="form-section" id="tutor-section">
+      <h3 id="section-title-tutor">Tutor</h3>
+      <div id="field-tutor-nome-wrap">
+        <label>Nome do tutor</label>
+        <input type="text" id="f-tutor-nome" placeholder="Nome completo">
+      </div>
       <label>Contacto (telefone)</label>
       <input type="tel" id="f-tutor-contacto" placeholder="Ex: 912345678">
       <label>NIF</label>
@@ -2704,7 +2708,7 @@ function getAnamneseDeclarations(){
     const stored = JSON.parse(localStorage.getItem(ANAMNESE_DECLARATIONS_KEY));
     if(Array.isArray(stored) && stored.length > 0) return stored;
   } catch(e){}
-  return DEFAULT_ANAMNESE_DECLARATIONS.slice();
+  return getCurrentNiche().defaultDeclarations.slice();
 }
 
 function saveAnamneseDeclarations(list){
@@ -3045,8 +3049,8 @@ function saveAnamneseTemplate(){
 }
 
 function resetAnamneseTemplate(){
-  if(!confirm('Repor as 3 declarações predefinidas? Isto substitui os pontos personalizados que tenhas feito.')) return;
-  editingDeclarationsDraft = DEFAULT_ANAMNESE_DECLARATIONS.slice();
+  if(!confirm('Repor as declarações predefinidas para o teu tipo de negócio? Isto substitui os pontos personalizados que tenhas feito.')) return;
+  editingDeclarationsDraft = getCurrentNiche().defaultDeclarations.slice();
   renderDeclarationsEditorList();
 }
 
@@ -4807,6 +4811,99 @@ function resetBranding(){
 }
 
 // ---------- Temas de aparência ----------
+// ---------- Nicho de negócio (Grooming, Estética, ...) ----------
+const NICHE_KEY = 'mtb_niche';
+
+const NICHE_OPTIONS = [
+  {
+    id: 'grooming',
+    label: '🐾 Grooming / Pet Care',
+    appTitle: 'Mind your Business',
+    appTagline: 'for Groomers',
+    appEmoji: '🐾',
+    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    sectionAnimal: 'Dados do animal',
+    labelNome: 'Nome',
+    showRaca: true,
+    showPeso: true,
+    labelComportamento: 'Comportamento',
+    sectionTutor: 'Tutor',
+    showTutorNome: true,
+    avisoCheckboxLabel: '⚠️ Este animal precisa de atenção especial',
+    hintAviso: 'Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
+    searchPlaceholder: 'Procurar por nome, tutor ou telefone...',
+    defaultDeclarations: [
+      'Confirmo que o meu animal se encontra atualmente saudável, sem doenças contagiosas, parasitas visíveis ou lesões não comunicadas à equipa, e apto para o serviço de grooming.',
+      'Autorizo a recolha e utilização de dados e fotografias do meu animal para fins de registo interno, histórico de tosquias e comunicação relacionada com o serviço.',
+      'Assumo a responsabilidade pelo bem-estar do meu animal, isentando o estabelecimento de responsabilidade por reações comportamentais, condições de saúde pré-existentes não comunicadas, ou situações imprevisíveis durante o serviço.'
+    ]
+  },
+  {
+    id: 'estetica',
+    label: '💅 Estética',
+    appTitle: 'Mind your Business',
+    appTagline: 'for Aesthetics',
+    appEmoji: '💅',
+    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    sectionAnimal: 'Dados do cliente',
+    labelNome: 'Nome',
+    showRaca: false,
+    showPeso: false,
+    labelComportamento: 'Preferências / Notas',
+    sectionTutor: 'Contacto',
+    showTutorNome: false,
+    avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
+    hintAviso: 'Marca isto se for relevante (ex: alergias, pele sensível) — a ficha deste cliente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
+    searchPlaceholder: 'Procurar por nome ou telefone...',
+    defaultDeclarations: [
+      'Confirmo que não tenho conhecimento de alergias, condições de pele ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
+      'Autorizo a recolha e utilização de dados e fotografias (antes/depois) para fins de registo interno, histórico de tratamentos e comunicação relacionada com o serviço.',
+      'Assumo a responsabilidade por reações a produtos ou tratamentos resultantes de informação de saúde não comunicada, isentando o estabelecimento de responsabilidade nesses casos.'
+    ]
+  }
+];
+
+function getCurrentNiche(){
+  const id = localStorage.getItem(NICHE_KEY) || 'grooming';
+  return NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
+}
+
+function setNiche(id){
+  localStorage.setItem(NICHE_KEY, id);
+  applyNicheUI();
+  renderSettingsModal();
+}
+
+function applyNicheUI(){
+  const n = getCurrentNiche();
+
+  // Logótipo/cabeçalho por defeito (só quando não há logótipo personalizado)
+  const emojiEl = document.getElementById('app-logo-emoji');
+  const titleEl = document.getElementById('app-logo-title');
+  const taglineEl = document.getElementById('app-logo-tagline');
+  const subtitleEl = document.getElementById('app-subtitle');
+  if(emojiEl) emojiEl.textContent = n.appEmoji;
+  if(titleEl) titleEl.textContent = n.appTitle;
+  if(taglineEl) taglineEl.textContent = n.appTagline;
+  if(subtitleEl) subtitleEl.textContent = n.subtitle;
+
+  // Ficha do cliente
+  const setText = (id, text) => { const el = document.getElementById(id); if(el) el.textContent = text; };
+  const setDisplay = (id, show) => { const el = document.getElementById(id); if(el) el.style.display = show ? '' : 'none'; };
+
+  setText('section-title-animal', n.sectionAnimal);
+  setText('label-comportamento', n.labelComportamento);
+  setText('section-title-tutor', n.sectionTutor);
+  setText('label-aviso-checkbox', n.avisoCheckboxLabel);
+  setText('hint-aviso', n.hintAviso);
+  setDisplay('field-raca-wrap', n.showRaca);
+  setDisplay('field-peso-wrap', n.showPeso);
+  setDisplay('field-tutor-nome-wrap', n.showTutorNome);
+
+  const searchInput = document.getElementById('search-input');
+  if(searchInput) searchInput.placeholder = n.searchPlaceholder;
+}
+
 const THEME_KEY = 'mtb_theme';
 
 const THEME_OPTIONS = [
@@ -4841,7 +4938,27 @@ function renderSettingsModal(){
   const overlay = document.getElementById('settings-overlay');
   if(!overlay) return;
 
-  if(settingsView === 'themes'){
+  if(settingsView === 'niche'){
+    const current = localStorage.getItem(NICHE_KEY) || 'grooming';
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='menu';renderSettingsModal();">‹ Definições</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">Tipo de negócio</h3>
+        <div class="hint" style="margin:6px 0 12px;">Adapta os nomes dos campos da ficha (ex: "Dados do animal" vs "Dados do cliente") ao teu tipo de negócio. Os teus dados não são alterados nem apagados ao mudares — é só uma questão de vocabulário.</div>
+        <div class="theme-option-list">
+          ${NICHE_OPTIONS.map(n => `
+            <div class="theme-card${n.id === current ? ' selected' : ''}" onclick="setNiche('${n.id}')">
+              <div class="theme-name">${n.label}</div>
+              ${n.id === current ? '<span class="theme-check">✓</span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  } else if(settingsView === 'themes'){
     const current = localStorage.getItem(THEME_KEY) || 'original';
     overlay.innerHTML = `
       <div class="appt-picker-panel">
@@ -4937,7 +5054,15 @@ function renderSettingsModal(){
           <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
         </div>
         <div class="settings-menu">
-          <div class="settings-menu-row" onclick="settingsView='themes';renderSettingsModal();">
+          <div class="settings-menu-row" onclick="settingsView='niche';renderSettingsModal();">
+            <div class="settings-menu-icon">${getCurrentNiche().appEmoji}</div>
+            <div class="settings-menu-info">
+              <div class="settings-menu-title">Tipo de negócio</div>
+              <div class="settings-menu-sub">${escapeHtml(getCurrentNiche().label)}</div>
+            </div>
+            <span class="settings-menu-arrow">›</span>
+          </div>
+          <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='themes';renderSettingsModal();">
             <div class="theme-swatches">${currentTheme.colors.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
             <div class="settings-menu-info">
               <div class="settings-menu-title">🎨 Temas</div>
@@ -5692,6 +5817,7 @@ window.addEventListener('popstate', () => {
 history.replaceState({ mtbNav: true }, '');
 
 // ---------- Arranque ----------
+applyNicheUI();
 openDB().then(() => {
   renderAgendaBody();
   clients = [];
