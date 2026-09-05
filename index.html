@@ -881,7 +881,7 @@
   </div>
   <div class="card-list" id="client-list"></div>
   <div id="empty-state" class="empty-state" style="display:none;">
-    <div class="big">🐶</div>
+    <div class="big" id="empty-state-icon">🐶</div>
     <div>Ainda não tens nenhuma ficha.<br>Toca no botão + para criar a primeira.</div>
   </div>
   <button class="fab" onclick="openForm()">+</button>
@@ -938,8 +938,8 @@
     </div>
 
     <div class="form-section">
-      <h3>📐 Custo médio por animal</h3>
-      <div class="hint" style="margin-bottom:10px;">
+      <h3 id="peranimal-title">📐 Custo médio por animal</h3>
+      <div class="hint" style="margin-bottom:10px;" id="peranimal-hint">
         Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada animal custa realmente e se os teus preços atuais chegam.
       </div>
       <div id="peranimal-box"></div>
@@ -1159,18 +1159,18 @@
     </div>
 
     <div class="form-section" id="anamnese-section" style="display:none;">
-      <h3>Ficha de anamnese</h3>
-      <div class="hint" style="margin-bottom:10px;">Gera automaticamente uma ficha de anamnese com os dados do animal e do tutor, com declaração de saúde, autorização de uso de dados/fotografias e responsabilização do tutor — pronta para ser assinada no telemóvel ou tablet.</div>
+      <h3 id="anamnese-section-title">Ficha de anamnese</h3>
+      <div class="hint" style="margin-bottom:10px;" id="anamnese-section-hint">Gera automaticamente uma ficha de anamnese com os dados do animal e do tutor, com declaração de saúde, autorização de uso de dados/fotografias e responsabilização do tutor — pronta para ser assinada no telemóvel ou tablet.</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn-secondary" style="flex:1;" onclick="openAnamneseModal()">+ Nova ficha de anamnese</button>
+        <button class="btn-secondary" style="flex:1;" onclick="openAnamneseModal()" id="anamnese-add-btn">+ Nova ficha de anamnese</button>
         <button class="btn-ghost" style="border:1px solid var(--line);flex-shrink:0;" onclick="openAnamneseTemplateEditor()" title="Personalizar declarações">⚙️ Editar</button>
       </div>
       <div id="anamnese-list" style="margin-top:14px;"></div>
     </div>
 
     <div class="form-section" id="gallery-section" style="display:none;">
-      <h3>Histórico de tosquias</h3>
-      <div class="hint" style="margin-bottom:10px;">Regista os detalhes de cada tosquia — lâminas usadas, comprimento geral, tipo de carinha, etc. — com ou sem fotografia.</div>
+      <h3 id="historico-title">Histórico de tosquias</h3>
+      <div class="hint" style="margin-bottom:10px;" id="historico-hint">Regista os detalhes de cada tosquia — lâminas usadas, comprimento geral, tipo de carinha, etc. — com ou sem fotografia.</div>
 
       <label>Nota</label>
       <textarea id="f-history-nota" placeholder="Ex: Lâmina 7F no corpo, tesoura na cabeça, carinha de urso, comprimento médio..."></textarea>
@@ -1190,7 +1190,7 @@
 
     <div class="form-section" id="incidents-section" style="display:none;">
       <h3>Registo de ocorrências / provas fotográficas</h3>
-      <div class="hint" style="margin-bottom:10px;">Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.</div>
+      <div class="hint" style="margin-bottom:10px;" id="incidents-hint">Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.</div>
 
       <label>Observação</label>
       <textarea id="f-incident-nota" placeholder="Ex: Orelha esquerda já inflamada na chegada, antes de qualquer procedimento."></textarea>
@@ -1606,7 +1606,8 @@ async function renderPriceEditorModal(){
     document.body.appendChild(overlay);
   }
 
-  const servicoIsCustom = existing && !PRICING_OPTIONS.servicos.includes(existing.servico);
+  const pc = getCurrentNiche().pricingCategories;
+  const servicoIsCustom = existing && !pc.servicos.includes(existing.servico);
 
   overlay.innerHTML = `
     <div class="appt-picker-panel">
@@ -1617,27 +1618,27 @@ async function renderPriceEditorModal(){
 
       <label style="margin-top:10px;">Serviço</label>
       <select id="price-servico" onchange="document.getElementById('price-servico-custom').style.display = this.value==='Outro' ? 'block' : 'none';">
-        ${PRICING_OPTIONS.servicos.map(s => `<option value="${s}" ${existing && existing.servico===s ? 'selected' : ''}>${s}</option>`).join('')}
+        ${pc.servicos.map(s => `<option value="${s}" ${existing && existing.servico===s ? 'selected' : ''}>${s}</option>`).join('')}
       </select>
       <input type="text" id="price-servico-custom" placeholder="Nome do serviço" style="margin-top:8px;display:${servicoIsCustom ? 'block' : 'none'};" value="${servicoIsCustom ? escapeHtml(existing.servico) : ''}">
 
       <div class="price-editor-row" style="margin-top:10px;">
         <div>
-          <label>Porte / peso</label>
+          <label>${pc.dimensaoLabel}</label>
           <select id="price-porte">
-            ${PRICING_OPTIONS.portes.map(p => `<option value="${p}" ${existing && existing.porte===p ? 'selected' : ''}>${p}</option>`).join('')}
+            ${pc.dimensoes.map(p => `<option value="${p}" ${existing && existing.porte===p ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
         </div>
         <div>
-          <label>Tipo de pelo</label>
+          <label>${pc.tipoLabel}</label>
           <select id="price-pelo">
-            ${PRICING_OPTIONS.pelos.map(p => `<option value="${p}" ${existing && existing.pelo===p ? 'selected' : ''}>${p}</option>`).join('')}
+            ${pc.tipos.map(p => `<option value="${p}" ${existing && existing.pelo===p ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
         </div>
       </div>
 
-      <label>Raça (opcional)</label>
-      <input type="text" id="price-raca" placeholder="Ex: Poodle — deixa vazio para qualquer raça" value="${existing ? escapeHtml(existing.raca || '') : ''}">
+      <label>${pc.racaLabel}</label>
+      <input type="text" id="price-raca" placeholder="${pc.racaPlaceholder}" value="${existing ? escapeHtml(existing.raca || '') : ''}">
 
       <label>Preço (€)</label>
       <input type="number" id="price-valor" step="0.01" min="0" placeholder="0,00" value="${existing ? existing.preco : ''}">
@@ -1914,13 +1915,13 @@ async function renderOverview(){
     <div class="stat-row"><span class="k">Receita do mês</span><span class="v">${formatCurrency(totalRevenue)}</span></div>
     <div class="stat-row"><span class="k">Despesas do mês</span><span class="v">${formatCurrency(totalExpenses)}</span></div>
     <div class="stat-row"><span class="k">Serviços com pagamento registado</span><span class="v">${numServices}</span></div>
-    <div class="stat-row"><span class="k">Ticket médio por animal</span><span class="v">${avgTicket != null ? formatCurrency(avgTicket) : '—'}</span></div>
-    <div class="stat-row"><span class="k">Custo por animal (ponto de equilíbrio)</span><span class="v">${costPerService != null ? formatCurrency(costPerService) : '—'}</span></div>
+    <div class="stat-row"><span class="k">Ticket médio por ${getCurrentNiche().unitLabel}</span><span class="v">${avgTicket != null ? formatCurrency(avgTicket) : '—'}</span></div>
+    <div class="stat-row"><span class="k">Custo por ${getCurrentNiche().unitLabel} (ponto de equilíbrio)</span><span class="v">${costPerService != null ? formatCurrency(costPerService) : '—'}</span></div>
   `;
 
   let adviceHtml;
   if(numServices === 0 || totalRevenue === 0){
-    adviceHtml = `<div class="advice-line">💡 Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada tosquia na ficha do cliente para começares a ver aqui a saúde financeira do teu negócio.</div>`;
+    adviceHtml = `<div class="advice-line">💡 ${getCurrentNiche().noPaymentsHint}</div>`;
   } else {
     let icon, text;
     if(margin < 0){
@@ -1939,7 +1940,7 @@ async function renderOverview(){
 
     let priceText = '';
     if(costPerService != null){
-      priceText = `Com base nas despesas deste mês, cada animal precisa de render pelo menos <strong>${formatCurrency(costPerService)}</strong> só para cobrires os custos (ponto de equilíbrio). Para uma margem de lucro saudável de 25%, o preço mínimo recomendado por animal é <strong>${formatCurrency(suggestedMinPrice)}</strong>.`;
+      priceText = `Com base nas despesas deste mês, cada ${getCurrentNiche().unitLabel} precisa de render pelo menos <strong>${formatCurrency(costPerService)}</strong> só para cobrires os custos (ponto de equilíbrio). Para uma margem de lucro saudável de 25%, o preço mínimo recomendado por ${getCurrentNiche().unitLabel} é <strong>${formatCurrency(suggestedMinPrice)}</strong>.`;
       if(avgTicket != null){
         priceText += avgTicket < suggestedMinPrice
           ? ` O teu ticket médio atual (${formatCurrency(avgTicket)}) está abaixo deste valor — pode valer a pena rever a tabela de preços.`
@@ -2007,6 +2008,7 @@ async function renderPerAnimalCost(){
   const costPerAnimal = avgServicesPerMonth > 0 ? avgExpensesPerMonth / avgServicesPerMonth : null;
   const revenuePerAnimal = avgServicesPerMonth > 0 ? avgRevenuePerMonth / avgServicesPerMonth : null;
   const profitPerAnimal = (costPerAnimal != null && revenuePerAnimal != null) ? revenuePerAnimal - costPerAnimal : null;
+  const unit = getCurrentNiche().unitLabel;
 
   if(totalServices === 0){
     boxEl.innerHTML = `<div class="hint">Ainda não há pagamentos suficientes nos últimos ${PERANIMAL_MONTHS_WINDOW} meses para calcular uma média fiável.</div>`;
@@ -2022,7 +2024,7 @@ async function renderPerAnimalCost(){
 
   boxEl.innerHTML = `
     <div class="payment-highlight" style="background:${boxBg};border-color:${boxBorder};">
-      <div class="label" style="color:${textColor};">Custo médio por animal</div>
+      <div class="label" style="color:${textColor};">Custo médio por ${unit}</div>
       <div class="value" style="color:${textColor};">${costPerAnimal != null ? formatCurrency(costPerAnimal) : '—'}</div>
       <div class="date" style="color:${textColor};">Média dos últimos ${monthsWithData} mês${monthsWithData===1?'':'es'} com dados</div>
     </div>
@@ -2031,24 +2033,24 @@ async function renderPerAnimalCost(){
   statsEl.innerHTML = `
     <div class="stat-row"><span class="k">Média de marcações pagas / mês</span><span class="v">${avgServicesPerMonth.toFixed(1)}</span></div>
     <div class="stat-row"><span class="k">Despesa média mensal</span><span class="v">${formatCurrency(avgExpensesPerMonth)}</span></div>
-    <div class="stat-row"><span class="k">Receita média por animal</span><span class="v">${revenuePerAnimal != null ? formatCurrency(revenuePerAnimal) : '—'}</span></div>
-    <div class="stat-row"><span class="k">Lucro médio por animal</span><span class="v">${profitPerAnimal != null ? formatCurrency(profitPerAnimal) : '—'}</span></div>
+    <div class="stat-row"><span class="k">Receita média por ${unit}</span><span class="v">${revenuePerAnimal != null ? formatCurrency(revenuePerAnimal) : '—'}</span></div>
+    <div class="stat-row"><span class="k">Lucro médio por ${unit}</span><span class="v">${profitPerAnimal != null ? formatCurrency(profitPerAnimal) : '—'}</span></div>
   `;
 
   let adviceHtml;
   if(profitPerAnimal == null){
     adviceHtml = `<div class="advice-line">💡 Regista mais pagamentos e despesas para veres aqui uma média mais fiável.</div>`;
   } else if(profitPerAnimal < 0){
-    adviceHtml = `<div class="advice-line">🔴 Em média, cada animal está a <strong>custar mais do que rende</strong> (${formatCurrency(Math.abs(profitPerAnimal))} de prejuízo por animal). É um sinal forte para reveres os preços.</div>`;
+    adviceHtml = `<div class="advice-line">🔴 Em média, cada ${unit} está a <strong>custar mais do que rende</strong> (${formatCurrency(Math.abs(profitPerAnimal))} de prejuízo por ${unit}). É um sinal forte para reveres os preços.</div>`;
   } else {
     const targetProfit = costPerAnimal * 0.25;
     const suggestedPrice = costPerAnimal + targetProfit;
     if(profitPerAnimal < targetProfit){
       adviceHtml = `
-        <div class="advice-line">🟠 O lucro médio por animal (${formatCurrency(profitPerAnimal)}) está abaixo do recomendado. Para uma margem saudável de 25%, o preço médio por animal devia rondar <strong>${formatCurrency(suggestedPrice)}</strong> (atualmente é ${formatCurrency(revenuePerAnimal)}).</div>
+        <div class="advice-line">🟠 O lucro médio por ${unit} (${formatCurrency(profitPerAnimal)}) está abaixo do recomendado. Para uma margem saudável de 25%, o preço médio por ${unit} devia rondar <strong>${formatCurrency(suggestedPrice)}</strong> (atualmente é ${formatCurrency(revenuePerAnimal)}).</div>
       `;
     } else {
-      adviceHtml = `<div class="advice-line">🟢 O lucro médio por animal (${formatCurrency(profitPerAnimal)}) está numa margem saudável face aos custos.</div>`;
+      adviceHtml = `<div class="advice-line">🟢 O lucro médio por ${unit} (${formatCurrency(profitPerAnimal)}) está numa margem saudável face aos custos.</div>`;
     }
   }
   adviceEl.innerHTML = `<div class="advice-box">${adviceHtml}</div>`;
@@ -2389,7 +2391,7 @@ function renderNoShowBanner(c){
 }
 
 async function clearNoShows(){
-  if(!confirm('Limpar o registo de faltas deste animal? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.')) return;
+  if(!confirm(getCurrentNiche().faltasClearConfirm)) return;
   currentClient.faltas = [];
   await saveClient(true);
   renderNoShowBanner(currentClient);
@@ -2760,20 +2762,20 @@ async function openAnamneseModal(){
         <button class="icon-btn" onclick="closeAnamneseModal()">✕</button>
       </div>
       <div class="anamnese-doc">
-        <h2>Ficha de Anamnese — Grooming</h2>
+        <h2>${getCurrentNiche().unitLabelCap === 'Animal' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
         <div class="doc-sub">Data: ${todayLabel}</div>
 
-        <h4>Dados do animal</h4>
+        <h4>${getCurrentNiche().sectionAnimal}</h4>
         <div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(c.nome || '—')}</span></div>
-        <div class="anamnese-field-row"><span class="k">Raça</span><span class="v">${escapeHtml(c.raca || '—')}</span></div>
+        ${getCurrentNiche().showRaca ? `<div class="anamnese-field-row"><span class="k">Raça</span><span class="v">${escapeHtml(c.raca || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Idade</span><span class="v">${escapeHtml(c.idade || '—')}</span></div>
-        <div class="anamnese-field-row"><span class="k">Peso</span><span class="v">${escapeHtml(c.peso || '—')}</span></div>
+        ${getCurrentNiche().showPeso ? `<div class="anamnese-field-row"><span class="k">Peso</span><span class="v">${escapeHtml(c.peso || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Data de nascimento</span><span class="v">${c.nascimento ? formatDate(c.nascimento) : '—'}</span></div>
-        <div class="anamnese-field-row"><span class="k">Comportamento</span><span class="v">${escapeHtml(c.comportamento || '—')}</span></div>
+        <div class="anamnese-field-row"><span class="k">${getCurrentNiche().labelComportamento}</span><span class="v">${escapeHtml(c.comportamento || '—')}</span></div>
         <div class="anamnese-field-row"><span class="k">Observações</span><span class="v">${escapeHtml(c.observacoes || '—')}</span></div>
 
-        <h4>Dados do tutor</h4>
-        <div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(c.tutorNome || '—')}</span></div>
+        <h4>${getCurrentNiche().sectionTutor}</h4>
+        ${getCurrentNiche().showTutorNome ? `<div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(c.tutorNome || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Contacto</span><span class="v">${escapeHtml(c.tutorContacto || '—')}</span></div>
         <div class="anamnese-field-row"><span class="k">NIF</span><span class="v">${escapeHtml(c.tutorNif || '—')}</span></div>
 
@@ -2956,20 +2958,20 @@ function viewAnamnese(id){
         <button class="icon-btn" onclick="closeAnamneseModal()">✕</button>
       </div>
       <div class="anamnese-doc">
-        <h2>Ficha de Anamnese — Grooming</h2>
+        <h2>${getCurrentNiche().unitLabelCap === 'Animal' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
         <div class="doc-sub">Data: ${formatDate(record.date)}</div>
 
-        <h4>Dados do animal</h4>
+        <h4>${getCurrentNiche().sectionAnimal}</h4>
         <div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(s.nome || '—')}</span></div>
-        <div class="anamnese-field-row"><span class="k">Raça</span><span class="v">${escapeHtml(s.raca || '—')}</span></div>
+        ${getCurrentNiche().showRaca ? `<div class="anamnese-field-row"><span class="k">Raça</span><span class="v">${escapeHtml(s.raca || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Idade</span><span class="v">${escapeHtml(s.idade || '—')}</span></div>
-        <div class="anamnese-field-row"><span class="k">Peso</span><span class="v">${escapeHtml(s.peso || '—')}</span></div>
+        ${getCurrentNiche().showPeso ? `<div class="anamnese-field-row"><span class="k">Peso</span><span class="v">${escapeHtml(s.peso || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Data de nascimento</span><span class="v">${s.nascimento ? formatDate(s.nascimento) : '—'}</span></div>
-        <div class="anamnese-field-row"><span class="k">Comportamento</span><span class="v">${escapeHtml(s.comportamento || '—')}</span></div>
+        <div class="anamnese-field-row"><span class="k">${getCurrentNiche().labelComportamento}</span><span class="v">${escapeHtml(s.comportamento || '—')}</span></div>
         <div class="anamnese-field-row"><span class="k">Observações</span><span class="v">${escapeHtml(s.observacoes || '—')}</span></div>
 
-        <h4>Dados do tutor</h4>
-        <div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(s.tutorNome || '—')}</span></div>
+        <h4>${getCurrentNiche().sectionTutor}</h4>
+        ${getCurrentNiche().showTutorNome ? `<div class="anamnese-field-row"><span class="k">Nome</span><span class="v">${escapeHtml(s.tutorNome || '—')}</span></div>` : ''}
         <div class="anamnese-field-row"><span class="k">Contacto</span><span class="v">${escapeHtml(s.tutorContacto || '—')}</span></div>
         <div class="anamnese-field-row"><span class="k">NIF</span><span class="v">${escapeHtml(s.tutorNif || '—')}</span></div>
 
@@ -3103,7 +3105,7 @@ async function saveClient(silent){
   currentClient.foto = currentMainPhoto;
 
   if(!currentClient.nome){
-    alert('Indica pelo menos o nome do animal antes de guardar.');
+    alert(getCurrentNiche().alertNomeVazio);
     return;
   }
 
@@ -3125,7 +3127,7 @@ async function deleteClient(){
     alert('Não há nenhuma ficha aberta para eliminar.');
     return;
   }
-  const nomeAnimal = currentClient.nome || 'este animal';
+  const nomeAnimal = currentClient.nome || getCurrentNiche().fallbackDeleteWord;
   if(!confirm(`Tem a certeza que quer eliminar a ficha de ${nomeAnimal}? Esta ação não pode ser desfeita.`)) return;
   try {
     await deleteClientDB(currentClient.id);
@@ -3164,9 +3166,10 @@ const PHONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6
 
 function buildReminderMessage(client, appt){
   const dateLabel = formatDate(appt.date);
-  const nome = client.nome || 'o seu animal';
+  const n = getCurrentNiche();
+  const nome = client.nome || n.fallbackClientName;
   const firstName = client.tutorNome ? client.tutorNome.trim().split(' ')[0] : '';
-  return `Olá${firstName ? ' ' + firstName : ''}! 🐾 Só a confirmar a marcação do(a) ${nome} para o dia ${dateLabel} às ${appt.time}. Fica combinado?`;
+  return `Olá${firstName ? ' ' + firstName : ''}! ${n.reminderEmoji} Só a confirmar a marcação do(a) ${nome} para o dia ${dateLabel} às ${appt.time}. Fica combinado?`;
 }
 
 function whatsappReminderUrl(client, appt){
@@ -3241,7 +3244,7 @@ async function renderList(){
     card.className = cardClass;
     const photoHtml = c.foto
       ? `<img src="${c.foto}">`
-      : `<div class="ph-placeholder">🐾</div>`;
+      : `<div class="ph-placeholder">${getCurrentNiche().placeholderIcon}</div>`;
     const wa = whatsappUrl(c.tutorContacto);
     const tel = telUrl(c.tutorContacto);
     const warningBadges = hasWarning
@@ -3391,7 +3394,7 @@ async function renderApptPickerModal(){
           </div>
         </div>
         <label>Nota (opcional)</label>
-        <input type="text" id="picker-nota" placeholder="Ex: banho + tosquia">
+        <input type="text" id="picker-nota" placeholder="${getCurrentNiche().notaExamplePlaceholder}">
         <label class="checkbox-row">
           <input type="checkbox" id="picker-lembrete24h" checked>
           <span>🔔 Lembrete automático 24h antes (aparece pronto a enviar na Agenda)</span>
@@ -3815,7 +3818,7 @@ async function renderDayNoteAndQuickAddHtml(iso){
       <label>Notas do dia</label>
       <textarea id="day-note-input" data-date="${iso}" placeholder="Ex: fechado à tarde, entrega de material...">${escapeHtml(nota)}</textarea>
     </div>
-    <button class="quick-add-btn" data-quickadd-date="${iso}">+ Marcar animal neste dia</button>
+    <button class="quick-add-btn" data-quickadd-date="${iso}">${getCurrentNiche().quickAddButtonLabel}</button>
   `;
 }
 
@@ -4179,8 +4182,8 @@ async function openQuickAddFromAgenda(iso, presetTime){
         <div class="nav-label">${dayLabel}</div>
         <button class="icon-btn" onclick="closeQuickAdd()">✕</button>
       </div>
-      <label style="margin-top:10px;">Animal / cliente</label>
-      <input type="text" id="quickadd-search" placeholder="Pesquisar por nome do animal..." oninput="renderQuickAddClientList(this.value)">
+      <label style="margin-top:10px;">${getCurrentNiche().quickAddLabel}</label>
+      <input type="text" id="quickadd-search" placeholder="${getCurrentNiche().searchAnimalPlaceholder}" oninput="renderQuickAddClientList(this.value)">
       <div id="quickadd-client-list" class="client-pick-list"></div>
       <input type="hidden" id="quickadd-client" value="">
       <div class="row2" style="margin-top:10px;">
@@ -4194,7 +4197,7 @@ async function openQuickAddFromAgenda(iso, presetTime){
         </div>
       </div>
       <label>Nota (opcional)</label>
-      <input type="text" id="quickadd-nota" placeholder="Ex: banho + tosquia">
+      <input type="text" id="quickadd-nota" placeholder="${getCurrentNiche().notaExamplePlaceholder}">
       <label class="checkbox-row">
         <input type="checkbox" id="quickadd-lembrete24h" checked>
         <span>🔔 Lembrete automático 24h antes</span>
@@ -4212,7 +4215,7 @@ function renderQuickAddClientList(filter){
   const term = (filter || '').trim().toLowerCase();
 
   if(!term){
-    listEl.innerHTML = '<div class="hint" style="padding:8px 2px;">Escreve o nome do animal para pesquisar.</div>';
+    listEl.innerHTML = `<div class="hint" style="padding:8px 2px;">${getCurrentNiche().searchAnimalHint}</div>`;
     return;
   }
 
@@ -4442,8 +4445,8 @@ async function openConfirmGoogleEventModal(pseudoItem){
       <div class="hint" style="margin:10px 0;">
         "${escapeHtml(pseudoItem.nota)}" — ${formatDate(pseudoItem.date)}, ${pseudoItem.time}–${pseudoItem.timeEnd}
       </div>
-      <label>Associar a que animal / cliente?</label>
-      <input type="text" id="quickadd-search" placeholder="Pesquisar por nome do animal..." oninput="renderQuickAddClientList(this.value)">
+      <label>${getCurrentNiche().associarLabel}</label>
+      <input type="text" id="quickadd-search" placeholder="${getCurrentNiche().searchAnimalPlaceholder}" oninput="renderQuickAddClientList(this.value)">
       <div id="quickadd-client-list" class="client-pick-list"></div>
       <input type="hidden" id="quickadd-client" value="">
       <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="confirmGoogleEventAsAppointment()">Confirmar marcação</button>
@@ -4456,7 +4459,7 @@ async function openConfirmGoogleEventModal(pseudoItem){
 async function confirmGoogleEventAsAppointment(){
   const clientId = document.getElementById('quickadd-client').value;
   if(!clientId){
-    alert('Escolhe um animal na lista, ou cria um novo.');
+    alert(getCurrentNiche().alertEscolheOuCria);
     return;
   }
   const clients = await getAllClients();
@@ -4496,7 +4499,7 @@ async function confirmQuickAddFromAgenda(iso){
   const lembrete24h = document.getElementById('quickadd-lembrete24h').checked;
 
   if(!clientId){
-    alert('Escolhe um animal na lista.');
+    alert(getCurrentNiche().alertEscolheLista);
     return;
   }
 
@@ -4632,7 +4635,7 @@ async function openMarkPaidModal(clientId, idx){
       <label>Valor pago</label>
       <input type="number" id="markpaid-valor" step="0.01" min="0" placeholder="0,00" autofocus>
       <label>Nota (opcional)</label>
-      <input type="text" id="markpaid-nota" value="${escapeHtml(appt.nota || '')}" placeholder="Ex: tosquia completa + banho">
+      <input type="text" id="markpaid-nota" value="${escapeHtml(appt.nota || '')}" placeholder="${getCurrentNiche().notaExamplePlaceholder}">
       <label class="checkbox-row">
         <input type="checkbox" id="markpaid-invoice">
         <span>🧾 Cliente quer comprovativo de pagamento (fatura)</span>
@@ -4699,7 +4702,7 @@ async function confirmMarkPaid(clientId, idx){
 }
 
 async function markNoShow(clientId, idx){
-  const ok = confirm('Marcar esta marcação como "Cliente não apareceu"? Isto fica registado na ficha do animal, que passa a aparecer destacado a vermelho na lista de Clientes.');
+  const ok = confirm(getCurrentNiche().noShowConfirm);
   if(!ok) return;
 
   const clients = await getAllClients();
@@ -4850,17 +4853,59 @@ const NICHE_OPTIONS = [
     appTitle: 'Mind your Business',
     appTagline: 'for Groomers',
     appEmoji: '🐾',
+    emptyStateIcon: '🐶',
+    placeholderIcon: '🐾',
+    reminderEmoji: '🐾',
+    fallbackClientName: 'o seu animal',
+    unitLabel: 'animal',
+    unitLabelCap: 'Animal',
     subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
     sectionAnimal: 'Dados do animal',
     labelNome: 'Nome',
+    nomePlaceholder: 'Ex: Toby',
     showRaca: true,
+    racaPlaceholder: 'Ex: Bichon Frisé',
     showPeso: true,
     labelComportamento: 'Comportamento',
+    comportamentoPlaceholder: 'Ex: nervoso com o secador, tranquilo, precisa de pausas...',
+    pedidosPlaceholder: 'Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas...',
+    notaExamplePlaceholder: 'Ex: tosquia completa + banho',
+    historyNotaPlaceholder: 'Ex: Lâmina 7F no corpo, tesoura na cabeça, carinha de urso, comprimento médio...',
+    incidentsHint: 'Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.',
+    incidentNotaPlaceholder: 'Ex: Orelha esquerda já inflamada na chegada, antes de qualquer procedimento.',
+    pricingSearchPlaceholder: '🔍 Pesquisar serviço, raça ou tipo de pelo...',
     sectionTutor: 'Tutor',
     showTutorNome: true,
     avisoCheckboxLabel: '⚠️ Este animal precisa de atenção especial',
     hintAviso: 'Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
     searchPlaceholder: 'Procurar por nome, tutor ou telefone...',
+    searchAnimalPlaceholder: 'Pesquisar por nome do animal...',
+    searchAnimalHint: 'Escreve o nome do animal para pesquisar.',
+    quickAddLabel: 'Animal / cliente',
+    quickAddButtonLabel: '+ Marcar animal neste dia',
+    associarLabel: 'Associar a que animal / cliente?',
+    alertNomeVazio: 'Indica pelo menos o nome do animal antes de guardar.',
+    alertEscolheLista: 'Escolhe um animal na lista.',
+    alertEscolheOuCria: 'Escolhe um animal na lista, ou cria um novo.',
+    fallbackDeleteWord: 'este animal',
+    faltasClearConfirm: 'Limpar o registo de faltas deste animal? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.',
+    noShowConfirm: 'Marcar esta marcação como "Cliente não apareceu"? Isto fica registado na ficha do animal, que passa a aparecer destacado a vermelho na lista de Clientes.',
+    historicoTitle: 'Histórico de tosquias',
+    historicoHint: 'Regista os detalhes de cada tosquia — lâminas usadas, comprimento geral, tipo de carinha, etc. — com ou sem fotografia.',
+    anamneseHint: 'Gera automaticamente uma ficha de anamnese com os dados do animal e do tutor, com declaração de saúde, autorização de uso de dados/fotografias e responsabilização do tutor — pronta para ser assinada no telemóvel ou tablet.',
+    photoSyncHint: 'As <strong>fotografias</strong> (foto do animal, histórico, ocorrências, assinaturas) também sincronizam',
+    perUnitTitle: 'Custo médio por animal',
+    perUnitHint: 'Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada animal custa realmente e se os teus preços atuais chegam.',
+    noPaymentsHint: 'Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada tosquia na ficha do cliente para começares a ver aqui a saúde financeira do teu negócio.',
+    pricingCategories: {
+      servicos: ['Tosquia completa', 'Tosquia higiénica', 'Tosquia a tesoura', 'Tosquia a máquina', 'Banho', 'Banho + escovagem', 'Desembaraçar pelo', 'Corte de unhas', 'Limpeza de ouvidos', 'Outro'],
+      dimensaoLabel: 'Porte / peso',
+      dimensoes: ['Qualquer porte', 'Pequeno (até 10kg)', 'Médio (10–20kg)', 'Grande (20–30kg)', 'Gigante (+30kg)'],
+      tipoLabel: 'Tipo de pelo',
+      tipos: ['Qualquer tipo', 'Curto', 'Médio', 'Longo', 'Duplo / Denso', 'Duro (wire)', 'Cacheado / Encaracolado'],
+      racaLabel: 'Raça (opcional)',
+      racaPlaceholder: 'Ex: Poodle — deixa vazio para qualquer raça'
+    },
     defaultDeclarations: [
       'Confirmo que o meu animal se encontra atualmente saudável, sem doenças contagiosas, parasitas visíveis ou lesões não comunicadas à equipa, e apto para o serviço de grooming.',
       'Autorizo a recolha e utilização de dados e fotografias do meu animal para fins de registo interno, histórico de tosquias e comunicação relacionada com o serviço.',
@@ -4873,17 +4918,59 @@ const NICHE_OPTIONS = [
     appTitle: 'Mind your Business',
     appTagline: 'for Aesthetics',
     appEmoji: '💅',
+    emptyStateIcon: '💄',
+    placeholderIcon: '✨',
+    reminderEmoji: '💅',
+    fallbackClientName: 'o(a) seu/sua cliente',
+    unitLabel: 'cliente',
+    unitLabelCap: 'Cliente',
     subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
     sectionAnimal: 'Dados do cliente',
     labelNome: 'Nome',
+    nomePlaceholder: 'Ex: Mariana Silva',
     showRaca: false,
+    racaPlaceholder: '',
     showPeso: false,
     labelComportamento: 'Preferências / Notas',
+    comportamentoPlaceholder: 'Ex: pele sensível, prefere ambiente calmo, evitar certos aromas...',
+    pedidosPlaceholder: 'Ex: gel nas unhas das mãos, sobrancelha em fio, tratamento anti-idade...',
+    notaExamplePlaceholder: 'Ex: manicure + verniz gel',
+    historyNotaPlaceholder: 'Ex: produto X aplicado, técnica de fio de sobrancelha, resultado bom, sem reação...',
+    incidentsHint: 'Usa esta secção para documentar situações como reação alérgica, irritação ou sensibilidade — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.',
+    incidentNotaPlaceholder: 'Ex: Pele com vermelhidão após o produto X, antes de qualquer procedimento.',
+    pricingSearchPlaceholder: '🔍 Pesquisar serviço ou tipo de pele...',
     sectionTutor: 'Contacto',
     showTutorNome: false,
     avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
     hintAviso: 'Marca isto se for relevante (ex: alergias, pele sensível) — a ficha deste cliente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
     searchPlaceholder: 'Procurar por nome ou telefone...',
+    searchAnimalPlaceholder: 'Pesquisar por nome do cliente...',
+    searchAnimalHint: 'Escreve o nome do cliente para pesquisar.',
+    quickAddLabel: 'Cliente',
+    quickAddButtonLabel: '+ Marcar cliente neste dia',
+    associarLabel: 'Associar a que cliente?',
+    alertNomeVazio: 'Indica pelo menos o nome do cliente antes de guardar.',
+    alertEscolheLista: 'Escolhe um cliente na lista.',
+    alertEscolheOuCria: 'Escolhe um cliente na lista, ou cria um novo.',
+    fallbackDeleteWord: 'este cliente',
+    faltasClearConfirm: 'Limpar o registo de faltas deste cliente? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.',
+    noShowConfirm: 'Marcar esta marcação como "Cliente não apareceu"? Isto fica registado na ficha do cliente, que passa a aparecer destacado a vermelho na lista de Clientes.',
+    historicoTitle: 'Histórico de tratamentos',
+    historicoHint: 'Regista os detalhes de cada tratamento — produtos usados, técnica, resultado, etc. — com ou sem fotografia (ex: antes/depois).',
+    anamneseHint: 'Gera automaticamente uma ficha de consentimento com os dados do cliente, com declaração de saúde, autorização de uso de dados/fotografias e responsabilização — pronta para ser assinada no telemóvel ou tablet.',
+    photoSyncHint: 'As <strong>fotografias</strong> (foto do cliente, histórico de tratamentos, ocorrências, assinaturas) também sincronizam',
+    perUnitTitle: 'Custo médio por cliente',
+    perUnitHint: 'Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada cliente custa realmente e se os teus preços atuais chegam.',
+    noPaymentsHint: 'Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada serviço na ficha do cliente para começares a ver aqui a saúde financeira do teu negócio.',
+    pricingCategories: {
+      servicos: ['Manicure', 'Pedicure', 'Verniz gel', 'Extensão de unhas', 'Design de sobrancelhas', 'Depilação', 'Limpeza de pele', 'Tratamento facial', 'Massagem', 'Maquilhagem', 'Outro'],
+      dimensaoLabel: 'Duração',
+      dimensoes: ['Qualquer duração', 'Até 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+      tipoLabel: 'Tipo de pele/zona',
+      tipos: ['Qualquer tipo', 'Pele normal', 'Pele sensível', 'Pele oleosa', 'Pele seca', 'Zona do rosto', 'Zona do corpo'],
+      racaLabel: 'Nota (opcional)',
+      racaPlaceholder: 'Ex: inclui produto específico — deixa vazio se não se aplicar'
+    },
     defaultDeclarations: [
       'Confirmo que não tenho conhecimento de alergias, condições de pele ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
       'Autorizo a recolha e utilização de dados e fotografias (antes/depois) para fins de registo interno, histórico de tratamentos e comunicação relacionada com o serviço.',
@@ -4950,18 +5037,44 @@ function applyNicheUI(){
   if(taglineEl) taglineEl.textContent = n.appTagline;
   if(subtitleEl) subtitleEl.textContent = n.subtitle;
 
-  // Ficha do cliente
   const setText = (id, text) => { const el = document.getElementById(id); if(el) el.textContent = text; };
+  const setHtml = (id, html) => { const el = document.getElementById(id); if(el) el.innerHTML = html; };
   const setDisplay = (id, show) => { const el = document.getElementById(id); if(el) el.style.display = show ? '' : 'none'; };
+  const setPlaceholder = (id, text) => { const el = document.getElementById(id); if(el) el.placeholder = text; };
 
+  // Ficha do cliente
   setText('section-title-animal', n.sectionAnimal);
+  setPlaceholder('f-nome', n.nomePlaceholder);
+  setPlaceholder('f-raca', n.racaPlaceholder);
   setText('label-comportamento', n.labelComportamento);
+  setPlaceholder('f-comportamento', n.comportamentoPlaceholder);
+  setPlaceholder('f-pedidos', n.pedidosPlaceholder);
+  setPlaceholder('f-payment-nota', n.notaExamplePlaceholder);
   setText('section-title-tutor', n.sectionTutor);
   setText('label-aviso-checkbox', n.avisoCheckboxLabel);
   setText('hint-aviso', n.hintAviso);
+  setText('empty-state-icon', n.emptyStateIcon);
   setDisplay('field-raca-wrap', n.showRaca);
   setDisplay('field-peso-wrap', n.showPeso);
   setDisplay('field-tutor-nome-wrap', n.showTutorNome);
+
+  // Anamnese / consentimento
+  setText('anamnese-section-title', n.unitLabelCap === 'Animal' ? 'Ficha de anamnese' : 'Ficha de consentimento');
+  setText('anamnese-section-hint', n.anamneseHint);
+
+  // Histórico
+  setText('historico-title', n.historicoTitle);
+  setText('historico-hint', n.historicoHint);
+  setPlaceholder('f-history-nota', n.historyNotaPlaceholder);
+  setText('peranimal-title', '📐 ' + n.perUnitTitle);
+  setText('peranimal-hint', n.perUnitHint);
+
+  // Ocorrências
+  setText('incidents-hint', n.incidentsHint);
+  setPlaceholder('f-incident-nota', n.incidentNotaPlaceholder);
+
+  // Tabela de preços
+  setPlaceholder('pricing-search', n.pricingSearchPlaceholder);
 
   const searchInput = document.getElementById('search-input');
   if(searchInput) searchInput.placeholder = n.searchPlaceholder;
@@ -5084,7 +5197,7 @@ function renderSettingsModal(){
           : `<button class="btn-secondary" style="width:100%;" onclick="connectGoogleDrive()">Ligar ao Google Drive</button>`
         }
         <div class="hint" style="margin-top:12px;">
-          📸 As <strong>fotografias</strong> (foto do animal, histórico, ocorrências, assinaturas) também sincronizam — cada uma é guardada como ficheiro próprio no teu Drive, para não sobrecarregar cada atualização. Podem demorar um pouco mais a aparecer no outro aparelho da primeira vez.
+          📸 ${getCurrentNiche().photoSyncHint} — cada uma é guardada como ficheiro próprio no teu Drive, para não sobrecarregar cada atualização. Podem demorar um pouco mais a aparecer no outro aparelho da primeira vez.
         </div>
 
         <h3 style="margin-top:18px;">📅 Google Calendar (opcional)</h3>

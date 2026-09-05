@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v87-niche-data-isolation';
+const CACHE_NAME = 'fichas-tosquia-v89-niche-full-vocab';
 const FILES_TO_CACHE = [
   './',
   './index.html',
