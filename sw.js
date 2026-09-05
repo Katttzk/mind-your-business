@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v90-newclient-flow';
+const CACHE_NAME = 'fichas-tosquia-v91-agenda-swipe';
 const FILES_TO_CACHE = [
   './',
   './index.html',
