@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v84-warning-single';
+const CACHE_NAME = 'fichas-tosquia-v85-new-themes';
 const FILES_TO_CACHE = [
   './',
   './index.html',

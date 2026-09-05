@@ -110,6 +110,110 @@
     background-clip:text;
     color:transparent;
   }
+
+  /* Mármore Negro & Dourado — elegante, fundo escuro com veios dourados subtis */
+  html[data-theme="marmore-negro"]{
+    --ink:#EDE6D6;
+    --base:#131110;
+    --panel:#1D1A17;
+    --teal:#C9A227;
+    --teal-dark:#8B6F1C;
+    --mustard:#E9C767;
+    --line:#3A342B;
+    --muted:#A69C87;
+    --danger:#C0655A;
+  }
+  html[data-theme="marmore-negro"] body{
+    background-color:#131110;
+    background-image:
+      linear-gradient(128deg, transparent 42%, rgba(201,162,39,.06) 43%, rgba(201,162,39,.02) 44.5%, transparent 46%),
+      linear-gradient(35deg, transparent 65%, rgba(201,162,39,.045) 66%, transparent 68%),
+      linear-gradient(95deg, transparent 20%, rgba(233,199,103,.03) 21%, transparent 22%);
+    background-attachment:fixed;
+  }
+  html[data-theme="marmore-negro"] header{
+    background:#181614;
+    background-image:
+      linear-gradient(120deg, transparent 38%, rgba(233,199,103,.22) 40%, rgba(233,199,103,.06) 42%, transparent 44%),
+      linear-gradient(55deg, transparent 60%, rgba(233,199,103,.14) 62%, transparent 65%),
+      linear-gradient(160deg, transparent 75%, rgba(233,199,103,.1) 77%, transparent 80%);
+    border-bottom:1px solid rgba(233,199,103,.2);
+  }
+  html[data-theme="marmore-negro"] .form-section,
+  html[data-theme="marmore-negro"] .client-card,
+  html[data-theme="marmore-negro"] .price-card,
+  html[data-theme="marmore-negro"] .appt-picker-panel,
+  html[data-theme="marmore-negro"] .anamnese-panel{
+    background:#1D1A17;border-color:#3A342B;
+  }
+  html[data-theme="marmore-negro"] input,
+  html[data-theme="marmore-negro"] select,
+  html[data-theme="marmore-negro"] textarea{
+    background:#171512;color:#EDE6D6;border-color:#3A342B;
+  }
+  html[data-theme="marmore-negro"] .btn-primary{
+    background:linear-gradient(135deg, #C9A227, #E9C767);color:#1A1610;font-weight:700;
+  }
+  html[data-theme="marmore-negro"] .tab-btn.active{background:#C9A227;color:#1A1610;}
+  html[data-theme="marmore-negro"] .hint{color:#A69C87;}
+
+  /* Mármore Pastel — o mesmo efeito de veios, em tons claros e suaves */
+  html[data-theme="marmore-pastel"]{
+    --ink:#5B5044;
+    --base:#FAF6EF;
+    --panel:#FFFFFF;
+    --teal:#C9A66B;
+    --teal-dark:#A6824A;
+    --mustard:#E3C9A0;
+    --line:#ECE1CE;
+    --muted:#A79A85;
+    --danger:#C97B72;
+  }
+  html[data-theme="marmore-pastel"] body{
+    background-color:#FAF6EF;
+    background-image:
+      linear-gradient(128deg, transparent 42%, rgba(201,166,107,.10) 43%, rgba(201,166,107,.04) 44.5%, transparent 46%),
+      linear-gradient(35deg, transparent 65%, rgba(201,166,107,.07) 66%, transparent 68%),
+      linear-gradient(95deg, transparent 20%, rgba(227,201,160,.06) 21%, transparent 22%);
+    background-attachment:fixed;
+  }
+  html[data-theme="marmore-pastel"] header{
+    background:#F3ECDE;
+    background-image:
+      linear-gradient(120deg, transparent 38%, rgba(201,166,107,.28) 40%, rgba(201,166,107,.08) 42%, transparent 44%),
+      linear-gradient(55deg, transparent 60%, rgba(201,166,107,.18) 62%, transparent 65%),
+      linear-gradient(160deg, transparent 75%, rgba(201,166,107,.14) 77%, transparent 80%);
+    border-bottom:1px solid rgba(201,166,107,.3);
+  }
+  html[data-theme="marmore-pastel"] header,
+  html[data-theme="marmore-pastel"] header h1,
+  html[data-theme="marmore-pastel"] header p{color:#5B5044;}
+  html[data-theme="marmore-pastel"] .settings-gear-btn{background:rgba(91,80,68,.12);color:#5B5044;}
+
+  /* Patinhas Pastel — divertido mas profissional, com patinhas subtis espalhadas */
+  html[data-theme="patinhas"]{
+    --ink:#4A4A5C;
+    --base:#F4F7FB;
+    --panel:#FFFFFF;
+    --teal:#7FB6D9;
+    --teal-dark:#5892B5;
+    --mustard:#F4B183;
+    --line:#DCE7F1;
+    --muted:#9AA3B7;
+    --danger:#E0897F;
+  }
+  html[data-theme="patinhas"] header{
+    background-color:#7FB6D9;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='%23ffffff' fill-opacity='0.22' transform='translate(32,40) rotate(12)'%3E%3Cellipse cx='0' cy='0' rx='9' ry='7'/%3E%3Cellipse cx='-9' cy='-11' rx='3.2' ry='4.2'/%3E%3Cellipse cx='-3' cy='-16' rx='3.2' ry='4.2'/%3E%3Cellipse cx='4' cy='-16' rx='3.2' ry='4.2'/%3E%3Cellipse cx='10' cy='-11' rx='3.2' ry='4.2'/%3E%3C/g%3E%3C/svg%3E");
+    background-size:64px 64px;
+  }
+  html[data-theme="patinhas"] body{
+    background-color:#F4F7FB;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cg fill='%237FB6D9' fill-opacity='0.06' transform='translate(70,90) rotate(-10)'%3E%3Cellipse cx='0' cy='0' rx='10' ry='8'/%3E%3Cellipse cx='-10' cy='-13' rx='3.6' ry='4.8'/%3E%3Cellipse cx='-3' cy='-18' rx='3.6' ry='4.8'/%3E%3Cellipse cx='5' cy='-18' rx='3.6' ry='4.8'/%3E%3Cellipse cx='11' cy='-12' rx='3.6' ry='4.8'/%3E%3C/g%3E%3C/svg%3E");
+    background-attachment:fixed;
+  }
+  html[data-theme="patinhas"] .tab-btn.active{background:#7FB6D9;}
+  html[data-theme="patinhas"] .btn-primary{background:#7FB6D9;}
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -4711,7 +4815,10 @@ const THEME_OPTIONS = [
   { id: 'girlie', label: 'Girlie — rosa & pêssego', colors: ['#FFF3F7', '#E58BB0', '#FFB88C'] },
   { id: 'luxo', label: 'Luxo — roxo & dourado', colors: ['#F7F1FA', '#4B2E7A', '#D4AF37'] },
   { id: 'pastel', label: 'Pastel Suave — verde-água & lavanda', colors: ['#F6F4FA', '#8FBFAE', '#C9B6E4'] },
-  { id: 'pride', label: '🏳️‍🌈 Orgulho — arco-íris', colors: ['#E4032E', '#FF8C00', '#24408E'] }
+  { id: 'pride', label: '🏳️‍🌈 Orgulho — arco-íris', colors: ['#E4032E', '#FF8C00', '#24408E'] },
+  { id: 'marmore-negro', label: 'Mármore Negro & Dourado', colors: ['#131110', '#1D1A17', '#C9A227'] },
+  { id: 'marmore-pastel', label: 'Mármore Pastel', colors: ['#FAF6EF', '#F3ECDE', '#C9A66B'] },
+  { id: 'patinhas', label: '🐾 Patinhas Pastel', colors: ['#F4F7FB', '#7FB6D9', '#F4B183'] }
 ];
 
 let settingsView = 'menu';
