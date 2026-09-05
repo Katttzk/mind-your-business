@@ -5782,6 +5782,21 @@ async function findOwnDeviceFileId(){
   return (data && data.files && data.files[0]) ? data.files[0].id : null;
 }
 
+// Cache em memória: evita voltar a processar/verificar as fotos de um cliente que não mudou
+// desde o último envio — sem isto, a app reprocessava TODAS as fotos de TODOS os clientes
+// a cada ciclo de sincronização (5 em 5 segundos), o que causava lentidão a navegar.
+const preparedClientCache = new Map();
+
+async function prepareClientForSyncCached(client){
+  const cached = preparedClientCache.get(client.id);
+  if(cached && cached.updatedAt === client.updatedAt){
+    return cached.prepared;
+  }
+  const prepared = await prepareClientForSync(client);
+  preparedClientCache.set(client.id, { updatedAt: client.updatedAt, prepared });
+  return prepared;
+}
+
 async function uploadDeviceSnapshot(){
   await ensureDriveFolder();
   if(!isValidDriveId(driveFolderId)){
@@ -5792,7 +5807,7 @@ async function uploadDeviceSnapshot(){
   for(const s of SYNC_STORES){
     const records = await s.getAll();
     if(s.name === STORE){
-      payload.stores[s.name] = await Promise.all(records.map(prepareClientForSync));
+      payload.stores[s.name] = await Promise.all(records.map(prepareClientForSyncCached));
     } else {
       payload.stores[s.name] = records;
     }
@@ -5848,7 +5863,7 @@ async function downloadDriveFile(fileId){
 
 async function mergeAndApplyRemoteData(){
   const remoteFiles = await listRemoteDeviceFiles();
-  if(remoteFiles.length === 0) return;
+  if(remoteFiles.length === 0) return false;
 
   const remoteSnapshots = [];
   for(const f of remoteFiles){
@@ -5864,6 +5879,8 @@ async function mergeAndApplyRemoteData(){
     const key = t.store + '::' + t.recordId;
     if(!tombstoneMap[key] || t.deletedAt > tombstoneMap[key].deletedAt) tombstoneMap[key] = t;
   });
+
+  let changed = false;
 
   for(const s of SYNC_STORES){
     const localRecords = await s.getAll();
@@ -5890,7 +5907,7 @@ async function mergeAndApplyRemoteData(){
       const localIsSame = wasLocal && localById[id].updatedAt === record.updatedAt;
 
       if(isDeleted){
-        if(wasLocal) await s.del(id);
+        if(wasLocal){ await s.del(id); changed = true; }
       } else if(!localIsSame){
         if(s.name === STORE){
           const hydrated = await hydrateClientImages(record);
@@ -5898,9 +5915,12 @@ async function mergeAndApplyRemoteData(){
         } else {
           await s.putRaw(record);
         }
+        changed = true;
       }
     }
   }
+
+  return changed;
 }
 
 let driveSyncInProgress = false;
@@ -5915,11 +5935,12 @@ async function driveSyncCycle(){
     // só depois envia o estado deste aparelho. Isto evita que um aparelho novo,
     // ainda sem dados locais, "publique" um estado vazio antes de ter recebido
     // o que já existia.
-    await mergeAndApplyRemoteData();
+    const hasChanges = await mergeAndApplyRemoteData();
     await uploadDeviceSnapshot();
     lastSyncAt = Date.now();
     lastSyncError = null;
-    refreshVisibleScreen();
+    if(hasChanges) refreshVisibleScreen();
+    else updateAgendaTabBadge();
     const statusEl = document.getElementById('drivesync-status');
     if(statusEl) statusEl.textContent = `🟢 Ligado — última sincronização: ${lastSyncLabel()}`;
   } catch(err){
