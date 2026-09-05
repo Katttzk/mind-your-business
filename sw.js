@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v91-agenda-swipe';
+const CACHE_NAME = 'fichas-tosquia-v92-month-gcal-style';
 const FILES_TO_CACHE = [
   './',
   './index.html',
