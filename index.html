@@ -22,6 +22,12 @@
     var themeKeyName = niche === 'grooming' ? 'mtb_theme' : ('mtb_theme_' + niche);
     var t = localStorage.getItem(themeKeyName);
     if(t && t !== 'original') document.documentElement.setAttribute('data-theme', t);
+
+    // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
+    // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
+    if(localStorage.getItem('mtb_niche') === null){
+      document.documentElement.classList.add('needs-niche-choice');
+    }
   } catch(e){}
 })();
 </script>
@@ -217,6 +223,35 @@
   html[data-theme="patinhas"] .tab-btn.active{background:#7FB6D9;}
   html[data-theme="patinhas"] .btn-primary{background:#7FB6D9;}
   *{box-sizing:border-box;}
+
+  /* Ecrã de boas-vindas — escolha do tipo de negócio na primeira utilização */
+  #niche-onboarding-screen{display:none;}
+  html.needs-niche-choice #niche-onboarding-screen{
+    display:flex;flex-direction:column;position:fixed;inset:0;z-index:1000;
+    background:linear-gradient(160deg, var(--teal), var(--teal-dark));
+    padding:40px 24px;overflow-y:auto;
+  }
+  html.needs-niche-choice header,
+  html.needs-niche-choice .tab-bar,
+  html.needs-niche-choice .screen{display:none !important;}
+  .onboarding-inner{max-width:420px;margin:auto;width:100%;text-align:center;}
+  .onboarding-inner .paw{font-size:2.6rem;display:block;margin-bottom:6px;}
+  .onboarding-inner h1{
+    color:#fff;font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
+    font-size:1.6rem;margin:0 0 8px;
+  }
+  .onboarding-inner .sub{color:#D9E6E0;font-size:.92rem;margin-bottom:28px;line-height:1.5;}
+  .niche-choice-card{
+    display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.95);
+    border-radius:16px;padding:18px 16px;margin-bottom:14px;text-align:left;
+    border:none;width:100%;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);
+  }
+  .niche-choice-card .emoji{font-size:1.8rem;flex-shrink:0;}
+  .niche-choice-card .info{flex:1;}
+  .niche-choice-card .info .name{font-weight:800;color:var(--teal-dark);font-size:1.02rem;}
+  .niche-choice-card .info .desc{font-size:.78rem;color:var(--muted);margin-top:2px;}
+  .niche-choice-card .arrow{color:var(--teal);font-size:1.3rem;flex-shrink:0;}
+  .onboarding-footnote{color:#C7D9D2;font-size:.76rem;margin-top:18px;line-height:1.5;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--base);
@@ -848,6 +883,16 @@
 </style>
 </head>
 <body>
+
+<div id="niche-onboarding-screen">
+  <div class="onboarding-inner">
+    <span class="paw">🐾💅</span>
+    <h1>Bem-vindo(a)!</h1>
+    <div class="sub">Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.</div>
+    <div id="niche-onboarding-list"></div>
+    <div class="onboarding-footnote">Não te preocupes — podes sempre mudar isto mais tarde em ⚙️ Definições → Tipo de negócio.</div>
+  </div>
+</div>
 
 <header>
   <div class="wrap">
@@ -6078,18 +6123,58 @@ history.replaceState({ mtbNav: true }, '');
   }, { passive: true });
 })();
 
+// ---------- Ecrã de boas-vindas — escolha do nicho na primeira utilização ----------
+function renderNicheOnboardingList(){
+  const listEl = document.getElementById('niche-onboarding-list');
+  if(!listEl) return;
+  const descriptions = {
+    grooming: 'Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.',
+    estetica: 'Manicure, pedicure, sobrancelhas, tratamentos de pele e afins.'
+  };
+  listEl.innerHTML = NICHE_OPTIONS.map(n => `
+    <button class="niche-choice-card" onclick="chooseNicheOnboarding('${n.id}')">
+      <span class="emoji">${n.appEmoji}</span>
+      <span class="info">
+        <div class="name">${n.label.replace(/^\S+\s/, '')}</div>
+        <div class="desc">${descriptions[n.id] || ''}</div>
+      </span>
+      <span class="arrow">›</span>
+    </button>
+  `).join('');
+}
+
+function chooseNicheOnboarding(id){
+  localStorage.setItem(NICHE_KEY, id);
+  document.documentElement.classList.remove('needs-niche-choice');
+  initApp();
+}
+
+if(document.documentElement.classList.contains('needs-niche-choice')){
+  renderNicheOnboardingList();
+}
+
 // ---------- Arranque ----------
-applyNicheUI();
-openDB().then(() => {
-  renderAgendaBody();
-  clients = [];
-  getAllClients().then(list => { clients = list; });
-  updateAgendaTabBadge();
-  renderHeaderBranding();
-  if(driveSyncEnabled && isGoogleSyncConfigured()){
-    attemptSilentDriveReconnect();
-  }
-});
+function initApp(){
+  applyNicheUI();
+  openDB().then(() => {
+    renderAgendaBody();
+    clients = [];
+    getAllClients().then(list => { clients = list; });
+    updateAgendaTabBadge();
+    renderHeaderBranding();
+    if(driveSyncEnabled && isGoogleSyncConfigured()){
+      attemptSilentDriveReconnect();
+    }
+  });
+}
+
+// Só arranca a app de imediato se a pessoa já tiver escolhido um nicho antes
+// (ou seja, não está a ver o ecrã de boas-vindas neste preciso momento).
+// Caso contrário, é chooseNicheOnboarding() que trata de arrancar a app,
+// assim que a pessoa tocar numa das opções.
+if(!document.documentElement.classList.contains('needs-niche-choice')){
+  initApp();
+}
 
 // Regista o service worker (permite funcionamento offline quando instalada)
 if('serviceWorker' in navigator){

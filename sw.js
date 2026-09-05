@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v94-niche-race-fix';
+const CACHE_NAME = 'fichas-tosquia-v95-niche-onboarding';
 const FILES_TO_CACHE = [
   './',
   './index.html',
