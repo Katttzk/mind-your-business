@@ -492,6 +492,7 @@
   .icon-btn-whatsapp{background:#25D366;border-color:#25D366;color:#fff;}
   .icon-btn-whatsapp svg{width:16px;height:16px;}
   .icon-btn-call{background:var(--teal);border-color:var(--teal);color:#fff;}
+  .icon-btn-email{background:#5B7FBF;border-color:#5B7FBF;color:#fff;}
   .icon-btn-call svg{width:15px;height:15px;}
   .card-actions{display:flex;gap:6px;flex-shrink:0;}
   .appt-row{
@@ -1198,6 +1199,8 @@
       </div>
       <label>Contacto (telefone)</label>
       <input type="tel" id="f-tutor-contacto" placeholder="Ex: 912345678">
+      <label>Email</label>
+      <input type="email" id="f-tutor-email" placeholder="Ex: nome@exemplo.com">
       <label>NIF</label>
       <input type="text" id="f-tutor-nif" placeholder="Ex: 123456789">
       <div class="hint">O link do WhatsApp é gerado automaticamente a partir do contacto.</div>
@@ -2362,7 +2365,7 @@ function closeForm(){
 }
 
 function clearForm(){
-  ['f-nome','f-raca','f-idade','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-nif'].forEach(id=>{
+  ['f-nome','f-raca','f-idade','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('f-aviso-ativo').checked = false;
@@ -2393,6 +2396,7 @@ function fillForm(c){
   document.getElementById('f-aviso-texto').style.display = c.temAviso ? 'block' : 'none';
   document.getElementById('f-tutor-nome').value = c.tutorNome || '';
   document.getElementById('f-tutor-contacto').value = c.tutorContacto || '';
+  document.getElementById('f-tutor-email').value = c.tutorEmail || '';
   document.getElementById('f-tutor-nif').value = c.tutorNif || '';
 
   currentMainPhoto = c.foto || null;
@@ -3146,6 +3150,7 @@ async function saveClient(silent){
   currentClient.avisoTexto = document.getElementById('f-aviso-texto').value.trim();
   currentClient.tutorNome = document.getElementById('f-tutor-nome').value.trim();
   currentClient.tutorContacto = document.getElementById('f-tutor-contacto').value.trim();
+  currentClient.tutorEmail = document.getElementById('f-tutor-email').value.trim();
   currentClient.tutorNif = document.getElementById('f-tutor-nif').value.trim();
   currentClient.foto = currentMainPhoto;
 
@@ -3218,9 +3223,16 @@ function telUrl(phone){
   return `tel:+${clean}`;
 }
 
+function mailtoUrl(email){
+  if(!email || !email.includes('@')) return null;
+  return `mailto:${email.trim()}`;
+}
+
 const WHATSAPP_ICON_SVG = '<svg viewBox="0 0 32 32" fill="currentColor"><path d="M16.004 3C9.376 3 4 8.373 4 15c0 2.34.64 4.53 1.75 6.41L4 29l7.78-1.7A11.94 11.94 0 0 0 16 27c6.63 0 12-5.37 12-12S22.63 3 16.004 3zm6.98 17.16c-.3.84-1.5 1.55-2.4 1.7-.62.1-1.4.14-2.26-.14-.52-.17-1.19-.39-2.06-.76-3.62-1.56-5.98-5.2-6.16-5.44-.18-.24-1.47-1.95-1.47-3.72 0-1.77.93-2.63 1.26-2.99.33-.36.72-.45.96-.45.24 0 .48.002.69.012.22.01.52-.084.82.62.3.72 1.02 2.49 1.11 2.67.09.18.15.39.03.63-.12.24-.18.39-.36.6-.18.21-.38.47-.54.63-.18.18-.36.36-.15.7.21.36.93 1.53 2 2.48 1.38 1.23 2.54 1.62 2.9 1.8.36.18.57.15.78-.09.21-.24.9-1.05 1.14-1.41.24-.36.48-.3.81-.18.33.12 2.1.99 2.46 1.17.36.18.6.27.69.42.09.15.09.87-.21 1.71z"/></svg>';
 
 const PHONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.24 1.01l-2.21 2.2z"/></svg>';
+
+const EMAIL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v.01L12 12l8-5.99V6H4zm16 12V8.24l-7.4 5.55a1 1 0 0 1-1.2 0L4 8.24V18h16z"/></svg>';
 
 
 function buildReminderMessage(client, appt){
@@ -3285,6 +3297,7 @@ async function renderList(){
     const phoneDigits = (c.tutorContacto || '').replace(/[^0-9]/g, '');
     return (c.nome||'').toLowerCase().includes(term) ||
       (c.tutorNome||'').toLowerCase().includes(term) ||
+      (c.tutorEmail||'').toLowerCase().includes(term) ||
       (termDigits && phoneDigits.includes(termDigits));
   }).sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
 
@@ -3306,6 +3319,7 @@ async function renderList(){
       : `<div class="ph-placeholder">${getCurrentNiche().placeholderIcon}</div>`;
     const wa = whatsappUrl(c.tutorContacto);
     const tel = telUrl(c.tutorContacto);
+    const mail = mailtoUrl(c.tutorEmail);
     const warningBadges = hasWarning
       ? `<span class="warning-badge">⚠️ ${escapeHtml(c.avisoTexto || 'Atenção especial')}</span>`
       : '';
@@ -3322,6 +3336,7 @@ async function renderList(){
       <div class="card-actions">
         ${wa ? `<a class="icon-btn icon-btn-whatsapp" href="${wa}" onclick="event.stopPropagation();" target="_blank" title="Abrir WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
         ${tel ? `<a class="icon-btn icon-btn-call" href="${tel}" onclick="event.stopPropagation();" title="Ligar">${PHONE_ICON_SVG}</a>` : ''}
+        ${mail ? `<a class="icon-btn icon-btn-email" href="${mail}" onclick="event.stopPropagation();" title="Enviar email">${EMAIL_ICON_SVG}</a>` : ''}
       </div>
     `;
     card.onclick = () => openForm(c);
@@ -4937,6 +4952,10 @@ const NICHE_OPTIONS = [
     sectionTutor: 'Tutor',
     showTutorNome: true,
     avisoCheckboxLabel: '⚠️ Este animal precisa de atenção especial',
+    avisoTextoPlaceholder: 'Ex: pulgas, agressivo, morde durante a secagem...',
+    idadePlaceholder: 'Ex: 3 anos',
+    expenseDescPlaceholder: 'Ex: Champô profissional, Renda, Eletricidade...',
+    shoppingPlaceholder: 'Ex: Champô hipoalergénico',
     hintAviso: 'Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
     searchPlaceholder: 'Procurar por nome, tutor ou telefone...',
     searchAnimalPlaceholder: 'Pesquisar por nome do animal...',
@@ -5003,6 +5022,10 @@ const NICHE_OPTIONS = [
     sectionTutor: 'Contacto',
     showTutorNome: false,
     avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
+    avisoTextoPlaceholder: 'Ex: alergia a produtos, pele muito sensível, ansiedade em tratamentos...',
+    idadePlaceholder: 'Ex: 35 anos',
+    expenseDescPlaceholder: 'Ex: Produtos de manicure, Renda, Eletricidade...',
+    shoppingPlaceholder: 'Ex: Verniz gel, algodão, acetona...',
     hintAviso: 'Marca isto se for relevante (ex: alergias, pele sensível) — a ficha deste cliente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
     searchPlaceholder: 'Procurar por nome ou telefone...',
     searchAnimalPlaceholder: 'Pesquisar por nome do cliente...',
@@ -5126,6 +5149,10 @@ function applyNicheUI(){
   setPlaceholder('f-payment-nota', n.notaExamplePlaceholder);
   setText('section-title-tutor', n.sectionTutor);
   setText('label-aviso-checkbox', n.avisoCheckboxLabel);
+  setPlaceholder('f-aviso-texto', n.avisoTextoPlaceholder);
+  setPlaceholder('f-idade', n.idadePlaceholder);
+  setPlaceholder('expense-desc', n.expenseDescPlaceholder);
+  setPlaceholder('shopping-input', n.shoppingPlaceholder);
   setText('hint-aviso', n.hintAviso);
   setText('empty-state-icon', n.emptyStateIcon);
   setDisplay('field-raca-wrap', n.showRaca);
