@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v97-email-field';
+const CACHE_NAME = 'fichas-tosquia-v98-inline-contact-btns';
 const FILES_TO_CACHE = [
   './',
   './index.html',

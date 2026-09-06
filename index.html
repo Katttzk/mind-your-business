@@ -493,6 +493,11 @@
   .icon-btn-whatsapp svg{width:16px;height:16px;}
   .icon-btn-call{background:var(--teal);border-color:var(--teal);color:#fff;}
   .icon-btn-email{background:#5B7FBF;border-color:#5B7FBF;color:#fff;}
+  .field-with-action{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+  .field-with-action input{flex:1;margin-bottom:0;}
+  .field-with-action .icon-btn{flex-shrink:0;width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;}
+  .field-with-action .icon-btn svg{width:18px;height:18px;}
+  .field-with-action .icon-btn.disabled{background:var(--line);border-color:var(--line);color:var(--muted);opacity:.6;pointer-events:none;}
   .icon-btn-call svg{width:15px;height:15px;}
   .card-actions{display:flex;gap:6px;flex-shrink:0;}
   .appt-row{
@@ -1198,9 +1203,16 @@
         <input type="text" id="f-tutor-nome" placeholder="Nome completo">
       </div>
       <label>Contacto (telefone)</label>
-      <input type="tel" id="f-tutor-contacto" placeholder="Ex: 912345678">
+      <div class="field-with-action">
+        <input type="tel" id="f-tutor-contacto" placeholder="Ex: 912345678" oninput="updateContactActionButtons()">
+        <a id="whatsapp-action-btn" class="icon-btn icon-btn-whatsapp disabled" href="#" onclick="return !this.classList.contains('disabled');" target="_blank" title="Abrir WhatsApp"></a>
+        <a id="call-action-btn" class="icon-btn icon-btn-call disabled" href="#" onclick="return !this.classList.contains('disabled');" title="Ligar"></a>
+      </div>
       <label>Email</label>
-      <input type="email" id="f-tutor-email" placeholder="Ex: nome@exemplo.com">
+      <div class="field-with-action">
+        <input type="email" id="f-tutor-email" placeholder="Ex: nome@exemplo.com" oninput="updateContactActionButtons()">
+        <a id="email-action-btn" class="icon-btn icon-btn-email disabled" href="#" onclick="return !this.classList.contains('disabled');" title="Enviar email"></a>
+      </div>
       <label>NIF</label>
       <input type="text" id="f-tutor-nif" placeholder="Ex: 123456789">
       <div class="hint">O link do WhatsApp é gerado automaticamente a partir do contacto.</div>
@@ -2378,6 +2390,7 @@ function clearForm(){
   document.getElementById('form-animal-name').textContent = 'Nova ficha';
   const banner = document.getElementById('form-noshow-banner');
   if(banner) banner.innerHTML = '';
+  updateContactActionButtons();
 }
 
 function fillForm(c){
@@ -2398,6 +2411,7 @@ function fillForm(c){
   document.getElementById('f-tutor-contacto').value = c.tutorContacto || '';
   document.getElementById('f-tutor-email').value = c.tutorEmail || '';
   document.getElementById('f-tutor-nif').value = c.tutorNif || '';
+  updateContactActionButtons();
 
   currentMainPhoto = c.foto || null;
   const img = document.getElementById('main-photo-preview');
@@ -3233,6 +3247,34 @@ const WHATSAPP_ICON_SVG = '<svg viewBox="0 0 32 32" fill="currentColor"><path d=
 const PHONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.24 1.01l-2.21 2.2z"/></svg>';
 
 const EMAIL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v.01L12 12l8-5.99V6H4zm16 12V8.24l-7.4 5.55a1 1 0 0 1-1.2 0L4 8.24V18h16z"/></svg>';
+
+// Atualiza os pequenos botões (WhatsApp, Ligar, Email) junto aos campos de contacto
+// dentro da própria ficha — ficam ativos assim que houver um valor válido, sem
+// precisares de guardar a ficha primeiro.
+function updateContactActionButtons(){
+  const phone = document.getElementById('f-tutor-contacto').value;
+  const email = document.getElementById('f-tutor-email').value;
+
+  const waBtn = document.getElementById('whatsapp-action-btn');
+  const callBtn = document.getElementById('call-action-btn');
+  const mailBtn = document.getElementById('email-action-btn');
+  if(!waBtn || !callBtn || !mailBtn) return;
+
+  waBtn.innerHTML = WHATSAPP_ICON_SVG;
+  callBtn.innerHTML = PHONE_ICON_SVG;
+  mailBtn.innerHTML = EMAIL_ICON_SVG;
+
+  const wa = whatsappUrl(phone);
+  const tel = telUrl(phone);
+  const mail = mailtoUrl(email);
+
+  waBtn.href = wa || '#';
+  waBtn.classList.toggle('disabled', !wa);
+  callBtn.href = tel || '#';
+  callBtn.classList.toggle('disabled', !tel);
+  mailBtn.href = mail || '#';
+  mailBtn.classList.toggle('disabled', !mail);
+}
 
 
 function buildReminderMessage(client, appt){
