@@ -21,7 +21,13 @@
     var niche = localStorage.getItem('mtb_niche') || 'grooming';
     var themeKeyName = niche === 'grooming' ? 'mtb_theme' : ('mtb_theme_' + niche);
     var t = localStorage.getItem(themeKeyName);
-    if(t && t !== 'original') document.documentElement.setAttribute('data-theme', t);
+    if(t && t !== 'original' && t !== 'personalizado') document.documentElement.setAttribute('data-theme', t);
+
+    if(t === 'personalizado'){
+      var accentKeyName = niche === 'grooming' ? 'mtb_custom_accent' : ('mtb_custom_accent_' + niche);
+      var accent = localStorage.getItem(accentKeyName);
+      if(accent) document.documentElement.style.setProperty('--mustard', accent);
+    }
 
     // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
     // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
@@ -306,6 +312,16 @@
     flex-shrink:0;padding:0;
   }
   .theme-option-list{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+  .custom-accent-box{
+    margin-top:16px;padding:14px;border-radius:12px;background:var(--base);border:1px solid var(--line);
+  }
+  .custom-accent-box label{font-weight:700;font-size:.85rem;margin-bottom:8px;display:block;}
+  .custom-accent-row{display:flex;align-items:center;gap:12px;}
+  .custom-accent-row input[type="color"]{
+    width:52px;height:52px;border-radius:12px;border:2px solid var(--panel);flex-shrink:0;
+    padding:0;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.12);
+  }
+  .custom-accent-info{flex:1;}
   .reminder-var-list{display:flex;flex-wrap:wrap;gap:6px;}
   .reminder-var{
     background:#DCEAE6;color:var(--teal-dark);font-size:.76rem;font-weight:700;
@@ -5253,6 +5269,7 @@ async function setNiche(id){
   }
 
   applyNicheUI();
+  reapplyThemeForCurrentNiche();
   await reloadDatabaseForNiche();
   preparedClientCache.clear();
 
@@ -5356,6 +5373,7 @@ function THEME_KEY(){ return nicheKey('mtb_theme'); }
 
 const THEME_OPTIONS = [
   { id: 'original', label: 'Sóbrio (original)', colors: ['#FAF7F2', '#2F4B45', '#D4A24C'] },
+  { id: 'personalizado', label: '🎨 Personalizado — a tua cor', colors: ['#FAF7F2', '#2F4B45', '#D4A24C'] },
   { id: 'chic', label: 'Chique — preto & dourado', colors: ['#FAFAF8', '#141414', '#C9A227'] },
   { id: 'girlie', label: 'Girlie — rosa & pêssego', colors: ['#FFF3F7', '#E58BB0', '#FFB88C'] },
   { id: 'luxo', label: 'Luxo — roxo & dourado', colors: ['#F7F1FA', '#4B2E7A', '#D4AF37'] },
@@ -5445,6 +5463,7 @@ function renderSettingsModal(){
     `;
   } else if(settingsView === 'themes'){
     const current = localStorage.getItem(THEME_KEY()) || 'original';
+    const customColor = localStorage.getItem(CUSTOM_ACCENT_KEY()) || '#D4A24C';
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -5454,14 +5473,28 @@ function renderSettingsModal(){
         <h3 style="margin-top:10px;">🎨 Temas</h3>
         <div class="hint" style="margin:6px 0 12px;">Escolhe o estilo visual que preferes para a aplicação.</div>
         <div class="theme-option-list">
-          ${THEME_OPTIONS.map(t => `
+          ${THEME_OPTIONS.map(t => {
+            const swatchColors = t.id === 'personalizado' ? [t.colors[0], t.colors[1], customColor] : t.colors;
+            return `
             <div class="theme-card${t.id === current ? ' selected' : ''}" onclick="applyTheme('${t.id}')">
-              <div class="theme-swatches">${t.colors.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
+              <div class="theme-swatches">${swatchColors.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
               <div class="theme-name">${t.label}</div>
               ${t.id === current ? '<span class="theme-check">✓</span>' : ''}
             </div>
-          `).join('')}
+          `;
+          }).join('')}
         </div>
+        ${current === 'personalizado' ? `
+          <div class="custom-accent-box">
+            <label>A tua cor de destaque</label>
+            <div class="custom-accent-row">
+              <input type="color" id="custom-accent-picker" value="${customColor}" onchange="setCustomAccentColor(this.value)">
+              <div class="custom-accent-info">
+                <div class="hint" style="margin:0;">O resto da aparência (fundo, texto, verde-petróleo assinatura) mantém-se sempre igual — só esta cor muda, para tudo continuar legível e elegante.</div>
+              </div>
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   } else if(settingsView === 'backup'){
@@ -5532,6 +5565,9 @@ function renderSettingsModal(){
     `;
   } else {
     const currentTheme = THEME_OPTIONS.find(t => t.id === (localStorage.getItem(THEME_KEY()) || 'original'));
+    const currentThemeSwatches = currentTheme.id === 'personalizado'
+      ? [currentTheme.colors[0], currentTheme.colors[1], localStorage.getItem(CUSTOM_ACCENT_KEY()) || currentTheme.colors[2]]
+      : currentTheme.colors;
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -5548,7 +5584,7 @@ function renderSettingsModal(){
             <span class="settings-menu-arrow">›</span>
           </div>
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='themes';renderSettingsModal();">
-            <div class="theme-swatches">${currentTheme.colors.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
+            <div class="theme-swatches">${currentThemeSwatches.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
             <div class="settings-menu-info">
               <div class="settings-menu-title">🎨 Temas</div>
               <div class="settings-menu-sub">${escapeHtml(currentTheme.label)}</div>
@@ -5594,13 +5630,42 @@ function renderSettingsModal(){
   }
 }
 
-function applyTheme(id){
-  localStorage.setItem(THEME_KEY(), id);
-  if(id === 'original'){
+function CUSTOM_ACCENT_KEY(){ return nicheKey('mtb_custom_accent'); }
+
+function applyCustomAccentColor(){
+  const saved = localStorage.getItem(CUSTOM_ACCENT_KEY());
+  if(saved){
+    document.documentElement.style.setProperty('--mustard', saved);
+  }
+}
+
+function clearCustomAccentColor(){
+  document.documentElement.style.removeProperty('--mustard');
+}
+
+function setCustomAccentColor(hex){
+  localStorage.setItem(CUSTOM_ACCENT_KEY(), hex);
+  applyCustomAccentColor();
+  renderSettingsModal();
+}
+
+function reapplyThemeForCurrentNiche(){
+  const themeId = localStorage.getItem(THEME_KEY()) || 'original';
+  if(themeId === 'original' || themeId === 'personalizado'){
     document.documentElement.removeAttribute('data-theme');
   } else {
-    document.documentElement.setAttribute('data-theme', id);
+    document.documentElement.setAttribute('data-theme', themeId);
   }
+  if(themeId === 'personalizado'){
+    applyCustomAccentColor();
+  } else {
+    clearCustomAccentColor();
+  }
+}
+
+function applyTheme(id){
+  localStorage.setItem(THEME_KEY(), id);
+  reapplyThemeForCurrentNiche();
   renderSettingsModal();
 }
 
