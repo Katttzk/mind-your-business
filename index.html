@@ -5192,17 +5192,17 @@ const NICHE_OPTIONS = [
     racaPlaceholder: '',
     showPeso: false,
     labelComportamento: 'Preferências / Notas',
-    comportamentoPlaceholder: 'Ex: pele sensível, prefere ambiente calmo, evitar certos aromas...',
-    pedidosPlaceholder: 'Ex: gel nas unhas das mãos, sobrancelha em fio, tratamento anti-idade...',
+    comportamentoPlaceholder: 'Ex: pele sensível, alergia a tinta capilar, sensibilidade a cola de pestanas, prefere ambiente calmo...',
+    pedidosPlaceholder: 'Ex: gel nas unhas, corte em camadas, volume russo nas pestanas, sobrancelha em fio...',
     notaExamplePlaceholder: 'Ex: manicure + verniz gel',
-    historyNotaPlaceholder: 'Ex: produto X aplicado, técnica de fio de sobrancelha, resultado bom, sem reação...',
+    historyNotaPlaceholder: 'Ex: coloração 6.0, técnica de volume russo nas pestanas, produto X aplicado, resultado bom, sem reação...',
     incidentsHint: 'Usa esta secção para documentar situações como reação alérgica, irritação ou sensibilidade — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.',
-    incidentNotaPlaceholder: 'Ex: Pele com vermelhidão após o produto X, antes de qualquer procedimento.',
-    pricingSearchPlaceholder: '🔍 Pesquisar serviço ou tipo de pele...',
+    incidentNotaPlaceholder: 'Ex: Pele/couro cabeludo com vermelhidão após o produto X, antes de qualquer procedimento.',
+    pricingSearchPlaceholder: '🔍 Pesquisar serviço, cabelo, pele ou pestanas...',
     sectionTutor: 'Contacto',
     showTutorNome: false,
     avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
-    avisoTextoPlaceholder: 'Ex: alergia a produtos, pele muito sensível, ansiedade em tratamentos...',
+    avisoTextoPlaceholder: 'Ex: alergia a tinta capilar, sensibilidade a cola de pestanas, pele muito sensível...',
     idadePlaceholder: 'Ex: 35 anos',
     labelSexo: 'Sexo',
     sexoLabels: ['Masculino', 'Feminino', 'Outro'],
@@ -5229,16 +5229,29 @@ const NICHE_OPTIONS = [
     perUnitHint: 'Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada cliente custa realmente e se os teus preços atuais chegam.',
     noPaymentsHint: 'Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada serviço na ficha do cliente para começares a ver aqui a saúde financeira do teu negócio.',
     pricingCategories: {
-      servicos: ['Manicure', 'Pedicure', 'Verniz gel', 'Extensão de unhas', 'Design de sobrancelhas', 'Depilação', 'Limpeza de pele', 'Tratamento facial', 'Massagem', 'Maquilhagem', 'Outro'],
+      servicos: [
+        'Manicure', 'Pedicure', 'Verniz gel', 'Extensão de unhas',
+        'Design de sobrancelhas', 'Henna de sobrancelhas', 'Micropigmentação',
+        'Depilação', 'Limpeza de pele', 'Tratamento facial', 'Massagem', 'Maquilhagem',
+        'Corte de cabelo', 'Coloração', 'Mechas / Balayage', 'Escova / Alisamento', 'Tratamento capilar',
+        'Extensão de pestanas', 'Lifting de pestanas',
+        'Outro'
+      ],
       dimensaoLabel: 'Duração',
       dimensoes: ['Qualquer duração', 'Até 30 min', '30–60 min', '1–2 horas', '+2 horas'],
-      tipoLabel: 'Tipo de pele/zona',
-      tipos: ['Qualquer tipo', 'Pele normal', 'Pele sensível', 'Pele oleosa', 'Pele seca', 'Zona do rosto', 'Zona do corpo'],
+      tipoLabel: 'Zona / Tipo',
+      tipos: [
+        'Qualquer tipo',
+        'Pele normal', 'Pele sensível', 'Pele oleosa', 'Pele seca',
+        'Zona do rosto', 'Zona do corpo',
+        'Cabelo liso', 'Cabelo ondulado', 'Cabelo cacheado', 'Cabelo crespo',
+        'Pestanas'
+      ],
       racaLabel: 'Nota (opcional)',
       racaPlaceholder: 'Ex: inclui produto específico — deixa vazio se não se aplicar'
     },
     defaultDeclarations: [
-      'Confirmo que não tenho conhecimento de alergias, condições de pele ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
+      'Confirmo que não tenho conhecimento de alergias (incluindo a produtos capilares, tintas ou colas de pestanas), condições de pele, couro cabeludo ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
       'Autorizo a recolha e utilização de dados e fotografias (antes/depois) para fins de registo interno, histórico de tratamentos e comunicação relacionada com o serviço.',
       'Assumo a responsabilidade por reações a produtos ou tratamentos resultantes de informação de saúde não comunicada, isentando o estabelecimento de responsabilidade nesses casos.'
     ]
@@ -6436,7 +6449,7 @@ function renderNicheOnboardingList(){
   if(!listEl) return;
   const descriptions = {
     grooming: 'Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.',
-    estetica: 'Manicure, pedicure, sobrancelhas, tratamentos de pele e afins.'
+    estetica: 'Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.'
   };
   listEl.innerHTML = NICHE_OPTIONS.map(n => `
     <button class="niche-choice-card" onclick="chooseNicheOnboarding('${n.id}')">
