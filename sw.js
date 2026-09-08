@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v98-inline-contact-btns';
+const CACHE_NAME = 'fichas-tosquia-v101-auto-idade';
 const FILES_TO_CACHE = [
   './',
   './index.html',

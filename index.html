@@ -306,6 +306,16 @@
     flex-shrink:0;padding:0;
   }
   .theme-option-list{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+  .reminder-var-list{display:flex;flex-wrap:wrap;gap:6px;}
+  .reminder-var{
+    background:#DCEAE6;color:var(--teal-dark);font-size:.76rem;font-weight:700;
+    padding:4px 10px;border-radius:20px;font-family:monospace;
+  }
+  .reminder-preview-box{
+    background:#E9F5E8;border:1px solid #C8E6C4;border-radius:12px;padding:12px 14px;margin-top:14px;
+  }
+  .reminder-preview-label{font-size:.72rem;font-weight:700;color:#4A8A46;margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px;}
+  #reminder-preview-text{font-size:.9rem;color:#2E5A2B;white-space:pre-wrap;line-height:1.4;}
   .theme-card{
     display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid var(--line);
     border-radius:12px;cursor:pointer;position:relative;background:var(--panel);
@@ -1141,12 +1151,20 @@
           <input type="text" id="f-idade" placeholder="Ex: 3 anos">
         </div>
       </div>
+      <label id="label-sexo">Sexo</label>
+      <select id="f-sexo" onchange="currentClient.sexo = this.value; updateNextApptMessagePreview();">
+        <option value="">Não especificado</option>
+        <option value="m" id="sexo-opt-m">Macho</option>
+        <option value="f" id="sexo-opt-f">Fêmea</option>
+        <option value="o" id="sexo-opt-o">Outro</option>
+      </select>
       <div id="field-peso-wrap">
         <label>Peso</label>
         <input type="text" id="f-peso" placeholder="Ex: 8,5 kg">
       </div>
       <label>Data de nascimento</label>
-      <input type="date" id="f-nascimento">
+      <input type="date" id="f-nascimento" onchange="autoFillIdadeFromNascimento()">
+      <div class="hint" style="margin-top:-6px;margin-bottom:10px;">Se preencheres a data de nascimento, a Idade acima é calculada automaticamente. Se não souberes a data, podes continuar a escrever a idade à mão.</div>
       <label>Recorrência de marcação</label>
       <select id="f-recorrencia">
         <option value="">Selecionar...</option>
@@ -2377,7 +2395,7 @@ function closeForm(){
 }
 
 function clearForm(){
-  ['f-nome','f-raca','f-idade','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
+  ['f-nome','f-raca','f-idade','f-sexo','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('f-aviso-ativo').checked = false;
@@ -2398,8 +2416,10 @@ function fillForm(c){
   document.getElementById('form-animal-name').textContent = c.nome || 'Sem nome';
   document.getElementById('f-raca').value = c.raca || '';
   document.getElementById('f-idade').value = c.idade || '';
+  document.getElementById('f-sexo').value = c.sexo || '';
   document.getElementById('f-peso').value = c.peso || '';
   document.getElementById('f-nascimento').value = c.nascimento || '';
+  autoFillIdadeFromNascimento();
   document.getElementById('f-recorrencia').value = c.recorrencia || '';
   document.getElementById('f-pedidos').value = c.pedidos || '';
   document.getElementById('f-comportamento').value = c.comportamento || '';
@@ -3153,6 +3173,7 @@ async function saveClient(silent){
   currentClient.nome = document.getElementById('f-nome').value.trim();
   currentClient.raca = document.getElementById('f-raca').value.trim();
   currentClient.idade = document.getElementById('f-idade').value.trim();
+  currentClient.sexo = document.getElementById('f-sexo').value;
   currentClient.peso = document.getElementById('f-peso').value.trim();
   currentClient.nascimento = document.getElementById('f-nascimento').value;
   currentClient.recorrencia = document.getElementById('f-recorrencia').value;
@@ -3277,12 +3298,76 @@ function updateContactActionButtons(){
 }
 
 
-function buildReminderMessage(client, appt){
+function getReminderTemplate(){
+  const stored = localStorage.getItem(nicheKey('mtb_reminder_template'));
+  if(stored) return stored;
+  return getCurrentNiche().defaultReminderTemplate;
+}
+
+function saveReminderTemplate(text){
+  localStorage.setItem(nicheKey('mtb_reminder_template'), text);
+}
+
+function resetReminderTemplate(){
+  localStorage.removeItem(nicheKey('mtb_reminder_template'));
+}
+
+function renderReminderPreview(){
+  const input = document.getElementById('reminder-template-input');
+  const previewEl = document.getElementById('reminder-preview-text');
+  if(!input || !previewEl) return;
+  const n = getCurrentNiche();
+  const exampleClient = { nome: n.id === 'grooming' ? 'Toby' : 'Mariana Silva', tutorNome: n.id === 'grooming' ? 'Joana Ferreira' : '', sexo: 'm' };
+  const exampleAppt = { date: isoDate(new Date()), time: '15:30' };
+  previewEl.textContent = fillReminderTemplate(input.value, exampleClient, exampleAppt);
+}
+
+function saveReminderTemplateFromForm(){
+  const input = document.getElementById('reminder-template-input');
+  if(!input) return;
+  const text = input.value.trim();
+  if(!text){
+    alert('Escreve o texto da mensagem antes de guardar.');
+    return;
+  }
+  saveReminderTemplate(text);
+  alert('Mensagem guardada! Já é esta que vai ser usada em todos os lembretes.');
+  settingsView = 'menu';
+  renderSettingsModal();
+}
+
+function resetReminderTemplateFromForm(){
+  if(!confirm('Repor a mensagem predefinida? A tua personalização atual é substituída.')) return;
+  resetReminderTemplate();
+  settingsView = 'reminder';
+  renderSettingsModal();
+}
+
+function getNomeComArtigo(client, nome){
+  const sexo = client && client.sexo;
+  if(sexo === 'm') return `do ${nome}`;
+  if(sexo === 'f') return `da ${nome}`;
+  return `de ${nome}`;
+}
+
+function fillReminderTemplate(template, client, appt){
   const dateLabel = formatDate(appt.date);
   const n = getCurrentNiche();
-  const nome = client.nome || n.fallbackClientName;
-  const firstName = client.tutorNome ? client.tutorNome.trim().split(' ')[0] : '';
-  return `Olá${firstName ? ' ' + firstName : ''}! ${n.reminderEmoji} Só a confirmar a marcação do(a) ${nome} para o dia ${dateLabel} às ${appt.time}. Fica combinado?`;
+  const nome = (client && client.nome) || n.fallbackClientName;
+  // O "tutor" usa o nome próprio de quem se deve cumprimentar: o do tutor, se existir
+  // (grooming), ou o do próprio cliente (estética, onde não há um "tutor" separado).
+  const tutorSource = (client && (client.tutorNome || client.nome)) || '';
+  const tutorFirst = tutorSource ? tutorSource.trim().split(' ')[0] : '';
+  return template
+    .split('{nome_artigo}').join(getNomeComArtigo(client, nome))
+    .split('{nome}').join(nome)
+    .split('{tutor}').join(tutorFirst)
+    .split('{data}').join(dateLabel)
+    .split('{hora}').join((appt && appt.time) || '');
+}
+
+function buildReminderMessage(client, appt){
+  return fillReminderTemplate(getReminderTemplate(), client, appt);
 }
 
 function whatsappReminderUrl(client, appt){
@@ -3632,6 +3717,39 @@ function generateId(prefix){
     return prefix + '_' + crypto.randomUUID();
   }
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+// Calcula uma idade legível ("2 anos", "8 meses"...) a partir de uma data de nascimento.
+// Devolve '' se a data não for válida.
+function calculateAgeFromBirthdate(isoDateStr){
+  if(!isoDateStr) return '';
+  const birth = new Date(isoDateStr + 'T00:00:00');
+  if(isNaN(birth.getTime())) return '';
+  const now = new Date();
+  if(birth > now) return '';
+
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if(now.getDate() < birth.getDate()) months--;
+  if(months < 0){ years--; months += 12; }
+
+  if(years <= 0){
+    if(months <= 0) return 'Recém-nascido(a)';
+    return months === 1 ? '1 mês' : `${months} meses`;
+  }
+  if(months === 0) return years === 1 ? '1 ano' : `${years} anos`;
+  return `${years} ano${years === 1 ? '' : 's'} e ${months} ${months === 1 ? 'mês' : 'meses'}`;
+}
+
+// Sempre que a data de nascimento é preenchida/alterada, calcula e preenche a idade
+// automaticamente. Se a data de nascimento for apagada, o campo de idade fica livre
+// para continuares a escrever à mão (não obriga a saber a data).
+function autoFillIdadeFromNascimento(){
+  const nascimentoInput = document.getElementById('f-nascimento');
+  const idadeInput = document.getElementById('f-idade');
+  if(!nascimentoInput || !idadeInput) return;
+  const calculated = calculateAgeFromBirthdate(nascimentoInput.value);
+  if(calculated) idadeInput.value = calculated;
 }
 
 function isoDate(d){
@@ -4972,6 +5090,7 @@ const NICHE_OPTIONS = [
     emptyStateIcon: '🐶',
     placeholderIcon: '🐾',
     reminderEmoji: '🐾',
+    defaultReminderTemplate: 'Olá {tutor}! 🐾 Só a confirmar a marcação {nome_artigo} para o dia {data} às {hora}. Fica combinado?',
     fallbackClientName: 'o seu animal',
     unitLabel: 'animal',
     unitLabelCap: 'Animal',
@@ -4996,6 +5115,8 @@ const NICHE_OPTIONS = [
     avisoCheckboxLabel: '⚠️ Este animal precisa de atenção especial',
     avisoTextoPlaceholder: 'Ex: pulgas, agressivo, morde durante a secagem...',
     idadePlaceholder: 'Ex: 3 anos',
+    labelSexo: 'Sexo',
+    sexoLabels: ['Macho', 'Fêmea', 'Outro'],
     expenseDescPlaceholder: 'Ex: Champô profissional, Renda, Eletricidade...',
     shoppingPlaceholder: 'Ex: Champô hipoalergénico',
     hintAviso: 'Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
@@ -5042,6 +5163,7 @@ const NICHE_OPTIONS = [
     emptyStateIcon: '⭐',
     placeholderIcon: '✨',
     reminderEmoji: '💅',
+    defaultReminderTemplate: 'Olá {tutor}! 💅 Só a confirmar a tua marcação para o dia {data} às {hora}. Fica combinado?',
     fallbackClientName: 'o(a) seu/sua cliente',
     unitLabel: 'cliente',
     unitLabelCap: 'Cliente',
@@ -5066,6 +5188,8 @@ const NICHE_OPTIONS = [
     avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
     avisoTextoPlaceholder: 'Ex: alergia a produtos, pele muito sensível, ansiedade em tratamentos...',
     idadePlaceholder: 'Ex: 35 anos',
+    labelSexo: 'Sexo',
+    sexoLabels: ['Masculino', 'Feminino', 'Outro'],
     expenseDescPlaceholder: 'Ex: Produtos de manicure, Renda, Eletricidade...',
     shoppingPlaceholder: 'Ex: Verniz gel, algodão, acetona...',
     hintAviso: 'Marca isto se for relevante (ex: alergias, pele sensível) — a ficha deste cliente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
@@ -5193,6 +5317,10 @@ function applyNicheUI(){
   setText('label-aviso-checkbox', n.avisoCheckboxLabel);
   setPlaceholder('f-aviso-texto', n.avisoTextoPlaceholder);
   setPlaceholder('f-idade', n.idadePlaceholder);
+  setText('label-sexo', n.labelSexo);
+  setText('sexo-opt-m', n.sexoLabels[0]);
+  setText('sexo-opt-f', n.sexoLabels[1]);
+  setText('sexo-opt-o', n.sexoLabels[2]);
   setPlaceholder('expense-desc', n.expenseDescPlaceholder);
   setPlaceholder('shopping-input', n.shoppingPlaceholder);
   setText('hint-aviso', n.hintAviso);
@@ -5258,7 +5386,44 @@ function renderSettingsModal(){
   const overlay = document.getElementById('settings-overlay');
   if(!overlay) return;
 
-  if(settingsView === 'niche'){
+  if(settingsView === 'reminder'){
+    const template = getReminderTemplate();
+    const isCustom = localStorage.getItem(nicheKey('mtb_reminder_template')) !== null;
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='menu';renderSettingsModal();">‹ Definições</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">💬 Mensagem de confirmação</h3>
+        <div class="hint" style="margin:6px 0 12px;">
+          Este é o texto usado sempre que tocas no botão de WhatsApp para confirmar uma marcação. Usa estas variáveis onde quiseres — a app substitui-as automaticamente pelos dados de cada ficha, sem nunca escreveres um nome fixo:
+        </div>
+        <div class="reminder-var-list">
+          <span class="reminder-var">{nome}</span>
+          <span class="reminder-var">{nome_artigo}</span>
+          <span class="reminder-var">{tutor}</span>
+          <span class="reminder-var">{data}</span>
+          <span class="reminder-var">{hora}</span>
+        </div>
+        <div class="hint" style="margin:8px 0 14px;font-size:.78rem;">
+          <strong>{nome}</strong> — nome do animal/cliente na ficha · <strong>{nome_artigo}</strong> — nome com "do"/"da"/"de" à frente, já certo consoante o sexo definido na ficha (ex: "do Bobby", "da Maria", "de Fluffy") · <strong>{tutor}</strong> — primeiro nome de quem cumprimentar · <strong>{data}</strong> e <strong>{hora}</strong> — data e hora da marcação.
+        </div>
+
+        <label>Texto da mensagem</label>
+        <textarea id="reminder-template-input" style="min-height:110px;" oninput="renderReminderPreview()">${escapeHtml(template)}</textarea>
+
+        <div class="reminder-preview-box">
+          <div class="reminder-preview-label">Pré-visualização</div>
+          <div id="reminder-preview-text"></div>
+        </div>
+
+        <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="saveReminderTemplateFromForm()">Guardar mensagem</button>
+        ${isCustom ? `<button class="btn-ghost" style="width:100%;margin-top:8px;border:1px solid var(--line);" onclick="resetReminderTemplateFromForm()">Repor mensagem predefinida</button>` : ''}
+      </div>
+    `;
+    renderReminderPreview();
+  } else if(settingsView === 'niche'){
     const current = localStorage.getItem(NICHE_KEY) || 'grooming';
     overlay.innerHTML = `
       <div class="appt-picker-panel">
@@ -5387,6 +5552,14 @@ function renderSettingsModal(){
             <div class="settings-menu-info">
               <div class="settings-menu-title">🎨 Temas</div>
               <div class="settings-menu-sub">${escapeHtml(currentTheme.label)}</div>
+            </div>
+            <span class="settings-menu-arrow">›</span>
+          </div>
+          <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='reminder';renderSettingsModal();">
+            <div class="settings-menu-icon">💬</div>
+            <div class="settings-menu-info">
+              <div class="settings-menu-title">Mensagem de confirmação</div>
+              <div class="settings-menu-sub">Personaliza o texto enviado por WhatsApp</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
