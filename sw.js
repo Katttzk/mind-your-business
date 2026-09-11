@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v103-estetica-broader';
+const CACHE_NAME = 'fichas-tosquia-v104-stock';
 const FILES_TO_CACHE = [
   './',
   './index.html',

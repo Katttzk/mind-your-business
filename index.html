@@ -478,11 +478,13 @@
   .checkbox-row input[type="checkbox"]{width:18px;height:18px;margin-top:1px;flex-shrink:0;accent-color:var(--teal);}
 
   .tab-bar{
-    display:flex;gap:5px;max-width:640px;margin:14px auto 0;padding:0 16px;
+    display:flex;gap:5px;max-width:640px;margin:14px auto 0;padding:0 16px 4px;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
   }
+  .tab-bar::-webkit-scrollbar{display:none;}
   .tab-btn{
-    flex:1;background:transparent;border:1px solid var(--teal);color:var(--teal);
-    padding:9px 4px;border-radius:10px;font-weight:600;font-size:.78rem;white-space:nowrap;
+    flex:0 0 auto;min-width:74px;background:transparent;border:1px solid var(--teal);color:var(--teal);
+    padding:9px 12px;border-radius:10px;font-weight:600;font-size:.8rem;white-space:nowrap;
   }
   .tab-btn.active{background:var(--teal);color:#fff;}
   .tab-btn{position:relative;}
@@ -908,6 +910,17 @@
   }
   .price-card .pc-actions{display:flex;gap:6px;flex-shrink:0;}
   .pricing-empty{text-align:center;padding:50px 20px;color:var(--muted);}
+  .stock-usage-row{
+    display:flex;align-items:center;gap:10px;background:var(--base);border:1px solid var(--line);
+    border-radius:10px;padding:8px 10px;margin-top:6px;
+  }
+  .stock-usage-info{flex:1;min-width:0;}
+  .stock-usage-name{font-size:.85rem;font-weight:600;color:var(--ink);}
+  .stock-usage-qty{color:var(--muted);font-weight:500;}
+  .stock-usage-sub{font-size:.72rem;color:var(--muted);margin-top:1px;}
+  .stock-card{cursor:pointer;flex-wrap:wrap;}
+  .stock-card.stock-low{background:#FDF1F0;border-color:#E5A9A3;}
+  .price-tag.stock-low-tag{background:#F5C9C4;color:#8F3E36;border-color:#E5A9A3;}
   .pricing-empty .big{font-size:2.4rem;margin-bottom:8px;}
 
   /* Modal de edição de preço */
@@ -949,6 +962,7 @@
   <button class="tab-btn" id="tab-clientes" onclick="showTab('list')">Clientes</button>
   <button class="tab-btn" id="tab-business" onclick="showTab('business')">Negócio</button>
   <button class="tab-btn" id="tab-pricing" onclick="showTab('pricing')">Preços</button>
+  <button class="tab-btn" id="tab-stock" onclick="showTab('stock')">Stock</button>
 </div>
 
 <!-- LISTAGEM -->
@@ -1101,6 +1115,17 @@
   </div>
 </div>
 
+<!-- STOCK -->
+<div id="stock-screen" class="screen">
+  <div class="wrap">
+    <div class="pricing-search-bar">
+      <input type="search" id="stock-search" placeholder="🔍 Pesquisar artigo..." oninput="renderStockList()">
+    </div>
+    <button class="btn-primary pricing-add-btn" onclick="openStockEditor()">+ Adicionar artigo</button>
+    <div id="stock-list"></div>
+  </div>
+</div>
+
 <!-- FORMULÁRIO / FICHA -->
 <div id="form-screen" class="screen">
   <div class="wrap">
@@ -1224,7 +1249,12 @@
       </div>
       <label>Nota (opcional)</label>
       <input type="text" id="f-payment-nota" placeholder="Ex: tosquia completa + banho">
-      <button class="btn-secondary" style="width:100%;margin-top:10px;" onclick="savePaymentEntry()">Registar pagamento</button>
+
+      <label style="margin-top:10px;">Produtos do stock usados (opcional)</label>
+      <div id="payment-stock-list"></div>
+      <button class="btn-ghost" style="width:100%;border:1px solid var(--line);margin-top:4px;" onclick="openStockUsagePicker()">+ Adicionar produto do stock</button>
+
+      <button class="btn-secondary" style="width:100%;margin-top:14px;" onclick="savePaymentEntry()">Registar pagamento</button>
 
       <button class="btn-ghost" id="payment-toggle-btn" style="width:100%;text-align:center;border:1px solid var(--line);border-radius:9px;margin-top:10px;display:none;" onclick="togglePaymentHistory()">Ver registos de pagamento</button>
       <div id="payment-history" style="margin-top:10px;display:none;"></div>
@@ -1331,10 +1361,11 @@ const SHOPPING_STORE = 'shopping';
 const EXPENSE_STORE = 'expenses';
 const PRICE_STORE = 'precos';
 const GCAL_HANDLED_STORE = 'gcalHandled';
+const STOCK_STORE = 'estoque';
 
 function openDB(){
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(getDbName(), 7);
+    const req = indexedDB.open(getDbName(), 8);
     req.onupgradeneeded = (e) => {
       const d = e.target.result;
       if(!d.objectStoreNames.contains(STORE)){
@@ -1357,6 +1388,9 @@ function openDB(){
       }
       if(!d.objectStoreNames.contains(GCAL_HANDLED_STORE)){
         d.createObjectStore(GCAL_HANDLED_STORE, { keyPath: 'id' });
+      }
+      if(!d.objectStoreNames.contains(STOCK_STORE)){
+        d.createObjectStore(STOCK_STORE, { keyPath: 'id' });
       }
     };
     req.onsuccess = (e) => { db = e.target.result; resolve(db); };
@@ -1850,6 +1884,182 @@ async function renderPricingList(){
       </div>
     `;
   }).join('');
+}
+
+// ---------- Stock ----------
+function getAllStock(){
+  return new Promise((resolve) => {
+    const tx = db.transaction(STOCK_STORE, 'readonly');
+    const req = tx.objectStore(STOCK_STORE).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+  });
+}
+
+function putStockRaw(item){
+  return new Promise((resolve) => {
+    const tx = db.transaction(STOCK_STORE, 'readwrite');
+    tx.objectStore(STOCK_STORE).put(item);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+function putStock(item){
+  item.updatedAt = Date.now();
+  return putStockRaw(item);
+}
+
+function deleteStockDB(id){
+  recordTombstone(STOCK_STORE, id);
+  return new Promise((resolve) => {
+    const tx = db.transaction(STOCK_STORE, 'readwrite');
+    tx.objectStore(STOCK_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+  });
+}
+
+let editingStockId = null;
+
+function openStockEditor(id){
+  editingStockId = id || null;
+  renderStockEditorModal();
+}
+
+async function renderStockEditorModal(){
+  let existing = null;
+  if(editingStockId){
+    const all = await getAllStock();
+    existing = all.find(s => s.id === editingStockId);
+  }
+
+  let overlay = document.getElementById('stock-editor-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'stock-editor-overlay';
+    overlay.className = 'appt-picker-overlay';
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeStockEditor(); });
+    document.body.appendChild(overlay);
+  }
+  mtbPushNav();
+
+  overlay.innerHTML = `
+    <div class="appt-picker-panel">
+      <div class="appt-picker-header">
+        <div class="nav-label">${existing ? '✏️ Editar artigo' : '+ Novo artigo de stock'}</div>
+        <button class="icon-btn" onclick="closeStockEditor()">✕</button>
+      </div>
+
+      <label style="margin-top:10px;">Nome do artigo</label>
+      <input type="text" id="stock-nome" placeholder="Ex: Champô hipoalergénico 500ml" value="${existing ? escapeHtml(existing.nome) : ''}">
+
+      <div class="price-editor-row" style="margin-top:10px;">
+        <div>
+          <label>Quantidade em stock</label>
+          <input type="number" id="stock-quantidade" step="1" min="0" placeholder="0" value="${existing ? existing.quantidade : ''}">
+        </div>
+        <div>
+          <label>Stock mínimo (opcional)</label>
+          <input type="number" id="stock-minimo" step="1" min="0" placeholder="Ex: 2" value="${existing && existing.minimo != null ? existing.minimo : ''}">
+        </div>
+      </div>
+
+      <label>Valor a somar ao serviço, se incluído (€)</label>
+      <input type="number" id="stock-preco" step="0.01" min="0" placeholder="0,00" value="${existing && existing.preco != null ? existing.preco : ''}">
+      <div class="hint" style="margin-top:4px;">Este é o valor que pode ser somado ao pagamento quando usares este artigo numa marcação — podes sempre optar por não somar, caso já esteja incluído no preço do serviço.</div>
+
+      <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="saveStockEntry()">${existing ? 'Guardar alterações' : 'Adicionar artigo'}</button>
+      ${existing ? `<button class="btn-ghost" style="width:100%;margin-top:8px;color:var(--danger);" onclick="deleteStockEntry('${existing.id}')">Eliminar este artigo</button>` : ''}
+    </div>
+  `;
+}
+
+function closeStockEditor(){
+  editingStockId = null;
+  const overlay = document.getElementById('stock-editor-overlay');
+  if(overlay) overlay.remove();
+}
+
+async function saveStockEntry(){
+  const nome = document.getElementById('stock-nome').value.trim();
+  const quantidadeRaw = document.getElementById('stock-quantidade').value;
+  const minimoRaw = document.getElementById('stock-minimo').value;
+  const precoRaw = document.getElementById('stock-preco').value;
+
+  if(!nome){
+    alert('Indica o nome do artigo.');
+    return;
+  }
+  if(quantidadeRaw === '' || isNaN(parseFloat(quantidadeRaw))){
+    alert('Indica a quantidade em stock.');
+    return;
+  }
+
+  const item = {
+    id: editingStockId || generateId('stk'),
+    nome,
+    quantidade: parseFloat(quantidadeRaw),
+    minimo: minimoRaw !== '' ? parseFloat(minimoRaw) : null,
+    preco: precoRaw !== '' ? parseFloat(precoRaw) : 0
+  };
+  await putStock(item);
+  closeStockEditor();
+  renderStockList();
+}
+
+async function deleteStockEntry(id){
+  if(!confirm('Eliminar este artigo do stock?')) return;
+  await deleteStockDB(id);
+  closeStockEditor();
+  renderStockList();
+}
+
+async function renderStockList(){
+  const listEl = document.getElementById('stock-list');
+  if(!listEl) return;
+  const searchEl = document.getElementById('stock-search');
+  const rawTerm = searchEl ? searchEl.value.trim() : '';
+  const words = normalizeSearchText(rawTerm).split(/\s+/).filter(Boolean);
+
+  const items = await getAllStock();
+  const filtered = words.length > 0
+    ? items.filter(s => words.every(w => normalizeSearchText(s.nome).includes(w)))
+    : items;
+
+  if(items.length === 0){
+    listEl.innerHTML = `
+      <div class="pricing-empty">
+        <div class="big">📦</div>
+        <div>O teu stock está vazio.<br>Toca em "+ Adicionar artigo" para começares.</div>
+      </div>
+    `;
+    return;
+  }
+  if(filtered.length === 0){
+    listEl.innerHTML = `<div class="pricing-empty"><div class="big">🔍</div><div>Nenhum artigo encontrado para "${escapeHtml(rawTerm)}".</div></div>`;
+    return;
+  }
+
+  const sorted = filtered.slice().sort((a,b) => a.nome.localeCompare(b.nome));
+  listEl.innerHTML = sorted.map(s => {
+    const isLow = s.minimo != null && s.quantidade <= s.minimo;
+    return `
+      <div class="price-card stock-card${isLow ? ' stock-low' : ''}" onclick="openStockEditor('${s.id}')">
+        <div class="pc-tags">
+          <span class="price-tag${isLow ? ' stock-low-tag' : ''}">${isLow ? '⚠️ ' : ''}${s.quantidade} em stock</span>
+          ${s.preco > 0 ? `<span class="price-tag porte">${formatCurrency(s.preco)} / unid.</span>` : ''}
+        </div>
+        <div class="pc-value" style="font-size:1rem;">${escapeHtml(s.nome)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Diminui a quantidade de um artigo em stock (ex: ao usá-lo numa marcação paga)
+async function deductStockQuantity(itemId, quantidadeUsada){
+  const items = await getAllStock();
+  const item = items.find(s => s.id === itemId);
+  if(!item) return;
+  item.quantidade = Math.max(0, (item.quantidade || 0) - quantidadeUsada);
+  await putStock(item);
 }
 
 let expenseDate = new Date();
@@ -2467,6 +2677,8 @@ function fillForm(c){
   renderIncidentList();
   document.getElementById('f-payment-date').value = isoDate(new Date());
   paymentsExpanded = false;
+  pendingStockUsage = [];
+  renderPaymentStockList();
   renderPayments();
   renderAnamneseList();
   renderNoShowBanner(c);
@@ -2726,6 +2938,98 @@ function formatCurrency(v){
   return (Number(v)||0).toLocaleString('pt-PT', { style:'currency', currency:'EUR' });
 }
 
+let pendingStockUsage = [];
+
+function renderPaymentStockList(){
+  const listEl = document.getElementById('payment-stock-list');
+  if(!listEl) return;
+  if(pendingStockUsage.length === 0){
+    listEl.innerHTML = '<div class="hint" style="margin:2px 0 6px;">Nenhum produto adicionado a este pagamento.</div>';
+    return;
+  }
+  listEl.innerHTML = pendingStockUsage.map((u, i) => `
+    <div class="stock-usage-row">
+      <div class="stock-usage-info">
+        <div class="stock-usage-name">${escapeHtml(u.nome)} <span class="stock-usage-qty">× ${u.quantidade}</span></div>
+        <div class="stock-usage-sub">${u.incluirValor ? `+ ${formatCurrency(u.precoUnitario * u.quantidade)} somado ao pagamento` : 'Deduzido do stock, sem somar ao valor'}</div>
+      </div>
+      <button class="icon-btn" onclick="removeStockUsage(${i})" title="Remover">🗑</button>
+    </div>
+  `).join('');
+}
+
+function removeStockUsage(index){
+  pendingStockUsage.splice(index, 1);
+  renderPaymentStockList();
+}
+
+async function openStockUsagePicker(){
+  const items = await getAllStock();
+  if(items.length === 0){
+    alert('Ainda não tens artigos no stock. Vai ao separador Stock para adicionares alguns primeiro.');
+    return;
+  }
+  mtbPushNav();
+  let overlay = document.getElementById('stock-usage-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'stock-usage-overlay';
+    overlay.className = 'appt-picker-overlay';
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeStockUsagePicker(); });
+    document.body.appendChild(overlay);
+  }
+  const sorted = items.slice().sort((a,b) => a.nome.localeCompare(b.nome));
+  overlay.innerHTML = `
+    <div class="appt-picker-panel">
+      <div class="appt-picker-header">
+        <div class="nav-label">+ Produto do stock</div>
+        <button class="icon-btn" onclick="closeStockUsagePicker()">✕</button>
+      </div>
+      <label style="margin-top:10px;">Artigo</label>
+      <select id="stock-usage-item">
+        ${sorted.map(s => `<option value="${s.id}" data-preco="${s.preco || 0}" data-stock="${s.quantidade}">${escapeHtml(s.nome)} (${s.quantidade} em stock)</option>`).join('')}
+      </select>
+      <label>Quantidade usada</label>
+      <input type="number" id="stock-usage-qty" step="1" min="1" value="1">
+      <label class="checkbox-row" style="margin-top:10px;">
+        <input type="checkbox" id="stock-usage-incluir" checked>
+        <span>Somar o valor deste produto ao pagamento</span>
+      </label>
+      <div class="hint" style="margin-top:4px;">Desmarca se este produto já estiver incluído no preço do serviço — o stock é sempre deduzido de qualquer forma.</div>
+      <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="confirmStockUsage()">Adicionar</button>
+    </div>
+  `;
+}
+
+function closeStockUsagePicker(){
+  const overlay = document.getElementById('stock-usage-overlay');
+  if(overlay) overlay.remove();
+}
+
+function confirmStockUsage(){
+  const select = document.getElementById('stock-usage-item');
+  const qtyRaw = document.getElementById('stock-usage-qty').value;
+  const incluir = document.getElementById('stock-usage-incluir').checked;
+  const qty = parseFloat(qtyRaw);
+
+  if(!qtyRaw || isNaN(qty) || qty <= 0){
+    alert('Indica uma quantidade válida.');
+    return;
+  }
+
+  const option = select.options[select.selectedIndex];
+  pendingStockUsage.push({
+    itemId: select.value,
+    nome: option.textContent.replace(/\s*\(\d+(\.\d+)? em stock\)$/, ''),
+    quantidade: qty,
+    precoUnitario: parseFloat(option.getAttribute('data-preco')) || 0,
+    incluirValor: incluir
+  });
+
+  closeStockUsagePicker();
+  renderPaymentStockList();
+}
+
 async function savePaymentEntry(){
   const date = document.getElementById('f-payment-date').value || isoDate(new Date());
   const valorRaw = document.getElementById('f-payment-valor').value;
@@ -2736,18 +3040,31 @@ async function savePaymentEntry(){
     return;
   }
 
+  let valorFinal = parseFloat(valorRaw);
+  pendingStockUsage.forEach(u => {
+    if(u.incluirValor) valorFinal += u.precoUnitario * u.quantidade;
+  });
+
   if(!currentClient.pagamentos) currentClient.pagamentos = [];
   currentClient.pagamentos.push({
     id: generateId('p'),
     date,
-    valor: parseFloat(valorRaw),
-    nota
+    valor: valorFinal,
+    nota,
+    produtosUsados: pendingStockUsage.length > 0 ? [...pendingStockUsage] : undefined
   });
   await saveClient(true);
+
+  // Deduz do stock cada produto usado, independentemente de ter sido somado ao valor ou não
+  for(const u of pendingStockUsage){
+    await deductStockQuantity(u.itemId, u.quantidade);
+  }
+  pendingStockUsage = [];
 
   document.getElementById('f-payment-date').value = isoDate(new Date());
   document.getElementById('f-payment-valor').value = '';
   document.getElementById('f-payment-nota').value = '';
+  renderPaymentStockList();
   renderPayments();
 }
 
@@ -2761,12 +3078,16 @@ async function deletePaymentEntry(id){
 let paymentsExpanded = false;
 
 function paymentRowHtml(p){
+  const produtosHtml = (p.produtosUsados && p.produtosUsados.length > 0)
+    ? `<div class="p-note" style="margin-top:2px;">📦 ${p.produtosUsados.map(u => `${escapeHtml(u.nome)} ×${u.quantidade}`).join(', ')}</div>`
+    : '';
   return `
     <div class="payment-row">
       <div class="p-date">${formatDate(p.date)}</div>
       <div class="p-info">
         <div class="p-value">${formatCurrency(p.valor)}</div>
         ${p.nota ? `<div class="p-note">${escapeHtml(p.nota)}</div>` : ''}
+        ${produtosHtml}
       </div>
       <button class="p-del" onclick="deletePaymentEntry('${p.id}')">Eliminar</button>
     </div>
@@ -2805,6 +3126,7 @@ function renderPayments(){
       <div class="value">${formatCurrency(last.valor)}</div>
       <div class="date">${formatDate(last.date)}</div>
       ${last.nota ? `<div class="note">${escapeHtml(last.nota)}</div>` : ''}
+      ${(last.produtosUsados && last.produtosUsados.length > 0) ? `<div class="note">📦 ${last.produtosUsados.map(u => `${escapeHtml(u.nome)} ×${u.quantidade}`).join(', ')}</div>` : ''}
     </div>
   `;
 
@@ -4990,10 +5312,12 @@ function showTab(tab){
   document.getElementById('agenda-screen').classList.remove('active');
   document.getElementById('business-screen').classList.remove('active');
   document.getElementById('pricing-screen').classList.remove('active');
+  document.getElementById('stock-screen').classList.remove('active');
   document.getElementById('tab-clientes').classList.remove('active');
   document.getElementById('tab-agenda').classList.remove('active');
   document.getElementById('tab-business').classList.remove('active');
   document.getElementById('tab-pricing').classList.remove('active');
+  document.getElementById('tab-stock').classList.remove('active');
 
   if(tab === 'agenda'){
     document.getElementById('agenda-screen').classList.add('active');
@@ -5011,6 +5335,10 @@ function showTab(tab){
     document.getElementById('pricing-screen').classList.add('active');
     document.getElementById('tab-pricing').classList.add('active');
     renderPricingList();
+  } else if(tab === 'stock'){
+    document.getElementById('stock-screen').classList.add('active');
+    document.getElementById('tab-stock').classList.add('active');
+    renderStockList();
   } else {
     document.getElementById('list-screen').classList.add('active');
     document.getElementById('tab-clientes').classList.add('active');
@@ -5697,12 +6025,13 @@ async function exportAllData(){
     const expenses = await getAllExpenses();
     const precos = await getAllPrices();
     const gcalHandled = await getAllGcalHandled();
+    const estoque = await getAllStock();
 
     const data = {
       app: 'Mind your Business — for Groomers',
       version: 1,
       exportedAt: new Date().toISOString(),
-      clientes, groomers, dayNotes, shopping, expenses, precos, gcalHandled,
+      clientes, groomers, dayNotes, shopping, expenses, precos, gcalHandled, estoque,
       settings: {
         businessLogo: localStorage.getItem(BRAND_LOGO_KEY()) || null,
         businessName: localStorage.getItem(BRAND_NAME_KEY()) || null,
@@ -5748,6 +6077,7 @@ async function handleImportFile(event){
     await clearStore(EXPENSE_STORE);
     await clearStore(PRICE_STORE);
     await clearStore(GCAL_HANDLED_STORE);
+    await clearStore(STOCK_STORE);
 
     for(const c of (data.clientes || [])) await putClient(c);
     for(const g of (data.groomers || [])) await putGroomer(g);
@@ -5756,6 +6086,7 @@ async function handleImportFile(event){
     for(const e of (data.expenses || [])) await putExpense(e);
     for(const p of (data.precos || [])) await putPriceRaw(p);
     for(const g of (data.gcalHandled || [])) await putGcalHandledRaw(g);
+    for(const s of (data.estoque || [])) await putStockRaw(s);
 
     if(data.settings){
       if(data.settings.businessLogo) localStorage.setItem(BRAND_LOGO_KEY(), data.settings.businessLogo);
@@ -5917,7 +6248,8 @@ const SYNC_STORES = [
   { name: SHOPPING_STORE, keyField: 'id', getAll: () => getAllShoppingItems(), putRaw: putShoppingItemRaw, del: deleteShoppingItemDB },
   { name: EXPENSE_STORE, keyField: 'id', getAll: () => getAllExpenses(), putRaw: putExpenseRaw, del: deleteExpenseDB },
   { name: PRICE_STORE, keyField: 'id', getAll: () => getAllPrices(), putRaw: putPriceRaw, del: deletePriceDB },
-  { name: GCAL_HANDLED_STORE, keyField: 'id', getAll: () => getAllGcalHandled(), putRaw: putGcalHandledRaw, del: deleteGcalHandledDB }
+  { name: GCAL_HANDLED_STORE, keyField: 'id', getAll: () => getAllGcalHandled(), putRaw: putGcalHandledRaw, del: deleteGcalHandledDB },
+  { name: STOCK_STORE, keyField: 'id', getAll: () => getAllStock(), putRaw: putStockRaw, del: deleteStockDB }
 ];
 
 let driveSyncEnabled = localStorage.getItem(nicheKey('mtb_drive_sync_enabled')) === 'true';
