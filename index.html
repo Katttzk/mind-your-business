@@ -781,6 +781,11 @@
   /* Pagamentos */
   .payment-highlight{
     background:#E3F5E9;border:1px solid #B9E4C6;border-radius:12px;padding:14px 16px;margin-bottom:10px;
+    position:relative;
+  }
+  .payment-highlight-del{
+    position:absolute;top:10px;right:10px;background:rgba(255,255,255,.6);border:none;color:#2F7A45;
+    width:26px;height:26px;border-radius:50%;font-size:.85rem;padding:0;line-height:1;
   }
   .payment-highlight .label{font-size:.75rem;color:#2F7A45;font-weight:600;}
   .payment-highlight .value{font-size:1.7rem;font-weight:700;color:#1F7A3D;font-family:Georgia,serif;line-height:1.2;}
@@ -3154,6 +3159,7 @@ function renderPayments(){
 
   highlightEl.innerHTML = `
     <div class="payment-highlight">
+      <button class="payment-highlight-del" onclick="deletePaymentEntry('${last.id}')" title="Eliminar este pagamento">🗑</button>
       <div class="label">Último pagamento</div>
       <div class="value">${formatCurrency(last.valor)}</div>
       <div class="date">${formatDate(last.date)}</div>
