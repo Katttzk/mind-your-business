@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v107-delete-first-payment';
+const CACHE_NAME = 'fichas-tosquia-v109-caucao';
 const FILES_TO_CACHE = [
   './',
   './index.html',

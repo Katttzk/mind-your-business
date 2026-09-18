@@ -4541,15 +4541,16 @@ async function renderDayTimelineHtml(items, date){
     }
 
     const hasAviso = !!(item.client && item.client.temAviso);
-    const bg = item.noShow ? '#C0554A' : (hasAviso ? '#D9A82A' : (item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)')));
-    const borderColor = item.noShow ? '#8F3E36' : (hasAviso ? '#A9800E' : (item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)')));
-    const avisoTitle = hasAviso ? ` — ⚠️ ${item.client.avisoTexto || 'Atenção especial'}` : '';
+    const hasCaucao = !!(item.temCaucao && !item.done);
+    const bg = item.noShow ? '#C0554A' : (hasAviso ? '#D9A82A' : (hasCaucao ? '#3E8A5E' : (item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)'))));
+    const borderColor = item.noShow ? '#8F3E36' : (hasAviso ? '#A9800E' : (hasCaucao ? '#2C6644' : (item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)'))));
+    const avisoTitle = hasAviso ? ` — ⚠️ ${item.client.avisoTexto || 'Atenção especial'}` : (hasCaucao ? ' — 🟢 Tem caução paga' : '');
     eventsHtml += `
       <div class="timeline-block${item.done ? ' done' : ''}" style="${posStyle}background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")' title="${escapeHtml((item.client.nome || 'Sem nome') + avisoTitle)}">
         <button class="timeline-edit-btn" onclick='event.stopPropagation();editAppointment("${item.client.id}", ${item.idx})'>✏️</button>
         ${!item.done ? `<button class="timeline-paid-btn" onclick='event.stopPropagation();openMarkPaidModal("${item.client.id}", ${item.idx})'>💰</button>` : ''}
         ${!item.done ? `<button class="timeline-noshow-btn" onclick='event.stopPropagation();markNoShow("${item.client.id}", ${item.idx})' title="Cliente não apareceu">🚫</button>` : ''}
-        <span class="t-name">${hasAviso && !item.noShow ? '⚠️ ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫' : ''}</span>
+        <span class="t-name">${hasAviso && !item.noShow ? '⚠️ ' : ''}${hasCaucao && !hasAviso && !item.noShow ? '🟢 ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫' : ''}</span>
         <span class="t-sub">${item.time}–${endTimeStr}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}</span>
       </div>
     `;
@@ -4639,9 +4640,11 @@ async function renderMonthHtml(items, refDate){
         chips += `<span class="month-chip gcal" title="${escapeHtml(label)} (Google, por confirmar)">${escapeHtml(label)}</span>`;
         return;
       }
-      const bg = it.client && it.client.temAviso ? '#D9A82A' : (it.groomerColor || 'var(--teal)');
+      const hasAvisoChip = !!(it.client && it.client.temAviso);
+      const hasCaucaoChip = !!(it.temCaucao && !it.done);
+      const bg = hasAvisoChip ? '#D9A82A' : (hasCaucaoChip ? '#3E8A5E' : (it.groomerColor || 'var(--teal)'));
       const doneClass = it.done ? ' done' : '';
-      const avisoPrefix = (it.client && it.client.temAviso) ? '⚠️ ' : '';
+      const avisoPrefix = hasAvisoChip ? '⚠️ ' : (hasCaucaoChip ? '🟢 ' : '');
       chips += `<span class="month-chip${doneClass}" style="background:${bg};" title="${escapeHtml(label)}${it.done ? ' (concluída)' : ''}">${avisoPrefix}${escapeHtml(label)}</span>`;
     });
     if(chips) chips = `<div class="month-chips">${chips}</div>`;
@@ -4694,14 +4697,15 @@ async function renderSelectedDayListHtml(items, date){
         return;
       }
       const hasAvisoRow = !!(item.client && item.client.temAviso);
-      const borderStyle = item.noShow ? 'border-left:4px solid #C0554A;' : (hasAvisoRow ? 'border-left:4px solid #D9A82A;background:#FEF8E4;' : (item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : ''));
+      const hasCaucaoRow = !!(item.temCaucao && !item.done);
+      const borderStyle = item.noShow ? 'border-left:4px solid #C0554A;' : (hasAvisoRow ? 'border-left:4px solid #D9A82A;background:#FEF8E4;' : (hasCaucaoRow ? 'border-left:4px solid #3E8A5E;background:#E8F5EC;' : (item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : '')));
       const waUrl = whatsappReminderUrl(item.client, item);
       rows += `
         <div class="agenda-item${item.done ? ' done' : ''}" style="${borderStyle}">
           <div class="agenda-item-top">
             <div class="agenda-time">${item.time}–${getEffectiveEndTime(item)}</div>
             <div class="agenda-info" data-open="${item.client.id}" style="cursor:pointer;">
-              <div class="name">${hasAvisoRow && !item.noShow ? '⚠️ ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫 Não apareceu' : ''}</div>
+              <div class="name">${hasAvisoRow && !item.noShow ? '⚠️ ' : ''}${hasCaucaoRow && !hasAvisoRow && !item.noShow ? '🟢 ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫 Não apareceu' : ''}${hasCaucaoRow ? ' · Caução paga' : ''}</div>
               <div class="sub">${escapeHtml(item.client.tutorNome || '')}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}${item.groomerName ? ' · ' + escapeHtml(item.groomerName) : ''}</div>
             </div>
           </div>
@@ -5255,6 +5259,11 @@ async function openMarkPaidModal(clientId, idx){
         <input type="checkbox" id="markpaid-invoice">
         <span>🧾 Cliente quer comprovativo de pagamento (fatura)</span>
       </label>
+      <label class="checkbox-row checkbox-row-caucao">
+        <input type="checkbox" id="markpaid-caucao" onchange="document.getElementById('markpaid-caucao-hint').style.display = this.checked ? 'block' : 'none';">
+        <span>🟢 É uma caução — a marcação não fica concluída, só fica assinalada a verde</span>
+      </label>
+      <div class="hint" id="markpaid-caucao-hint" style="display:none;margin-top:2px;">A marcação continua por realizar na Agenda, mas fica destacada a verde para saberes que já tem sinal pago. Quando o serviço acontecer, volta a usar este botão para registares o valor final.</div>
       <button class="btn-primary" style="width:100%;margin-top:12px;" onclick="confirmMarkPaid('${clientId}', ${idx})">Confirmar pagamento</button>
     </div>
   `;
@@ -5269,6 +5278,7 @@ async function confirmMarkPaid(clientId, idx){
   const valorRaw = document.getElementById('markpaid-valor').value;
   const nota = document.getElementById('markpaid-nota').value.trim();
   const precisaFatura = document.getElementById('markpaid-invoice').checked;
+  const isCaucao = document.getElementById('markpaid-caucao').checked;
 
   if(!valorRaw || isNaN(parseFloat(valorRaw))){
     alert('Indica o valor pago.');
@@ -5280,16 +5290,22 @@ async function confirmMarkPaid(clientId, idx){
   if(!client || !client.agendamentos || !client.agendamentos[idx]) return;
 
   const appt = client.agendamentos[idx];
-  appt.done = true;
+  if(isCaucao){
+    appt.temCaucao = true;
+  } else {
+    appt.done = true;
+    appt.temCaucao = false;
+  }
 
   if(!client.pagamentos) client.pagamentos = [];
   client.pagamentos.push({
     id: generateId('p'),
     date: appt.date,
     valor: parseFloat(valorRaw),
-    nota: nota || '',
+    nota: (isCaucao ? 'Caução — ' : '') + (nota || ''),
     precisaFatura,
-    faturaEmitida: false
+    faturaEmitida: false,
+    caucao: isCaucao
   });
 
   await putClient(client);
@@ -5633,7 +5649,7 @@ const NICHE_OPTIONS = [
   },
   {
     id: 'saude',
-    label: '🩺 Saúde ao Domicílio',
+    label: '🩺 Saúde e Bem-Estar',
     appTitle: 'Mind your Business',
     appTagline: 'for Home Care',
     appEmoji: '🩺',
@@ -5710,12 +5726,132 @@ const NICHE_OPTIONS = [
       'Autorizo a recolha e utilização de dados clínicos e fotografias (ex: evolução de feridas) para fins de registo interno, histórico de cuidados e comunicação relacionada com o serviço.',
       'Confirmo que a informação de saúde e medicação habitual fornecida é verdadeira e completa, tanto quanto é do meu conhecimento.'
     ]
+  },
+  {
+    id: 'outros',
+    label: '💼 Outros Negócios',
+    customizable: true,
+    appTitle: 'Mind your Business',
+    appTagline: 'for Service Providers',
+    appEmoji: '💼',
+    emptyStateIcon: '💼',
+    placeholderIcon: '👤',
+    reminderEmoji: '📋',
+    defaultReminderTemplate: 'Olá {tutor}! Só a confirmar a marcação para o dia {data} às {hora}. Fica combinado?',
+    fallbackClientName: 'o(a) seu/sua cliente',
+    unitLabel: 'cliente',
+    unitLabelCap: 'Cliente',
+    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    sectionAnimal: 'Dados do cliente',
+    labelNome: 'Nome',
+    nomePlaceholder: 'Ex: Nome do cliente',
+    businessNamePlaceholder: 'Ex: O Nome do Meu Negócio',
+    showRaca: false,
+    racaPlaceholder: '',
+    showPeso: false,
+    labelPedidos: 'Pedidos habituais',
+    pedidosPlaceholder: 'Ex: preferências ou pedidos específicos deste cliente...',
+    labelComportamento: 'Notas',
+    comportamentoPlaceholder: 'Ex: notas relevantes sobre este cliente...',
+    showMedicacao: false,
+    notaExamplePlaceholder: 'Ex: descrição do serviço prestado',
+    historyNotaPlaceholder: 'Ex: detalhes do serviço realizado, materiais usados, resultado...',
+    incidentsHint: 'Usa esta secção para documentar situações relevantes — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.',
+    incidentNotaPlaceholder: 'Ex: descreve aqui a situação, antes de qualquer procedimento.',
+    pricingSearchPlaceholder: '🔍 Pesquisar serviço...',
+    sectionTutor: 'Contacto',
+    showTutorNome: false,
+    avisoCheckboxLabel: '⚠️ Este cliente precisa de atenção especial',
+    avisoTextoPlaceholder: 'Ex: motivo do aviso...',
+    idadePlaceholder: 'Ex: 30 anos',
+    labelSexo: 'Sexo',
+    sexoLabels: ['Masculino', 'Feminino', 'Outro'],
+    expenseDescPlaceholder: 'Ex: Material, Renda, Eletricidade...',
+    shoppingPlaceholder: 'Ex: Material necessário...',
+    hintAviso: 'Marca isto se for relevante — a ficha deste cliente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
+    searchPlaceholder: 'Procurar por nome ou telefone...',
+    searchAnimalPlaceholder: 'Pesquisar por nome...',
+    searchAnimalHint: 'Escreve o nome para pesquisar.',
+    quickAddLabel: 'Cliente',
+    quickAddButtonLabel: '+ Marcar cliente neste dia',
+    associarLabel: 'Associar a que cliente?',
+    alertNomeVazio: 'Indica pelo menos o nome antes de guardar.',
+    alertEscolheLista: 'Escolhe um cliente na lista.',
+    alertEscolheOuCria: 'Escolhe um cliente na lista, ou cria um novo.',
+    fallbackDeleteWord: 'este cliente',
+    faltasClearConfirm: 'Limpar o registo de faltas deste cliente? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.',
+    noShowConfirm: 'Marcar esta marcação como "Cliente não apareceu"? Isto fica registado na ficha do cliente, que passa a aparecer destacado a vermelho na lista de Clientes.',
+    historicoTitle: 'Histórico',
+    historicoHint: 'Regista os detalhes de cada serviço prestado — com ou sem fotografia.',
+    anamneseHint: 'Gera automaticamente uma ficha de consentimento com os dados do cliente, autorização de uso de dados/fotografias e responsabilização — pronta para ser assinada no telemóvel ou tablet.',
+    photoSyncHint: 'As <strong>fotografias</strong> (histórico, ocorrências, assinaturas) também sincronizam',
+    perUnitTitle: 'Custo médio por cliente',
+    perUnitHint: 'Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada cliente custa realmente e se os teus preços atuais chegam.',
+    noPaymentsHint: 'Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada serviço na ficha do cliente para começares a ver aqui a saúde financeira do teu negócio.',
+    pricingCategories: {
+      servicos: ['Serviço 1', 'Serviço 2', 'Outro'],
+      dimensaoLabel: 'Duração',
+      dimensoes: ['Qualquer duração', 'Até 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+      tipoLabel: 'Categoria',
+      tipos: ['Qualquer categoria', 'Outro'],
+      racaLabel: 'Nota (opcional)',
+      racaPlaceholder: 'Ex: detalhe específico — deixa vazio se não se aplicar'
+    },
+    defaultDeclarations: [
+      'Confirmo que autorizo a prestação do serviço proposto, tendo sido informado(a) sobre a sua natureza.',
+      'Autorizo a recolha e utilização de dados e fotografias para fins de registo interno, histórico e comunicação relacionada com o serviço.',
+      'Assumo a responsabilidade por informação não comunicada relevante para a prestação do serviço, isentando o estabelecimento de responsabilidade nesses casos.'
+    ]
   }
 ];
 
+function getNicheCustomizations(){
+  try {
+    const stored = JSON.parse(localStorage.getItem(nicheKey('mtb_niche_custom_fields')));
+    return (stored && typeof stored === 'object') ? stored : {};
+  } catch(e){ return {}; }
+}
+
+function saveNicheCustomizations(overrides){
+  localStorage.setItem(nicheKey('mtb_niche_custom_fields'), JSON.stringify(overrides));
+}
+
 function getCurrentNiche(){
   const id = localStorage.getItem(NICHE_KEY) || 'grooming';
-  return NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
+  const base = NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
+  if(base.customizable){
+    return { ...base, ...getNicheCustomizations() };
+  }
+  return base;
+}
+
+function saveCustomFieldsFromForm(){
+  const overrides = getNicheCustomizations();
+  overrides.unitLabel = document.getElementById('cf-unitlabel').value.trim() || 'cliente';
+  overrides.unitLabelCap = overrides.unitLabel.charAt(0).toUpperCase() + overrides.unitLabel.slice(1);
+  overrides.sectionAnimal = document.getElementById('cf-sectionanimal').value.trim() || 'Dados do cliente';
+  overrides.labelPedidos = document.getElementById('cf-labelpedidos').value.trim() || 'Pedidos habituais';
+  overrides.labelComportamento = document.getElementById('cf-labelcomportamento').value.trim() || 'Notas';
+  overrides.sectionTutor = document.getElementById('cf-sectiontutor').value.trim() || 'Contacto';
+  overrides.historicoTitle = document.getElementById('cf-historicotitle').value.trim() || 'Histórico';
+  overrides.showRaca = document.getElementById('cf-showraca').checked;
+  overrides.showPeso = document.getElementById('cf-showpeso').checked;
+  overrides.showMedicacao = document.getElementById('cf-showmedicacao').checked;
+  overrides.showTutorNome = document.getElementById('cf-showtutornome').checked;
+
+  saveNicheCustomizations(overrides);
+  applyNicheUI();
+  alert('Personalização guardada! Já está a ser aplicada em toda a app.');
+  settingsView = 'menu';
+  renderSettingsModal();
+}
+
+function resetCustomFieldsFromForm(){
+  if(!confirm('Repor todos os campos para as predefinições genéricas? A tua personalização atual é substituída.')) return;
+  localStorage.removeItem(nicheKey('mtb_niche_custom_fields'));
+  applyNicheUI();
+  settingsView = 'customfields';
+  renderSettingsModal();
 }
 
 let activeNicheEpoch = 0;
@@ -5911,6 +6047,45 @@ function renderSettingsModal(){
       </div>
     `;
     renderReminderPreview();
+  } else if(settingsView === 'customfields'){
+    const n = getCurrentNiche();
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='menu';renderSettingsModal();">‹ Definições</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">📝 Personalizar campos</h3>
+        <div class="hint" style="margin:6px 0 14px;">Adapta os nomes usados na ficha de cliente ao teu tipo de negócio específico. Estas alterações aplicam-se em toda a app (ficha, agenda, relatórios).</div>
+
+        <label>Palavra para "cliente" (ex: cliente, paciente, aluno...)</label>
+        <input type="text" id="cf-unitlabel" value="${escapeHtml(n.unitLabel)}" placeholder="Ex: cliente">
+
+        <label>Título da secção principal da ficha</label>
+        <input type="text" id="cf-sectionanimal" value="${escapeHtml(n.sectionAnimal)}" placeholder="Ex: Dados do cliente">
+
+        <label>Nome do campo "Pedidos habituais"</label>
+        <input type="text" id="cf-labelpedidos" value="${escapeHtml(n.labelPedidos)}" placeholder="Ex: Pedidos habituais">
+
+        <label>Nome do campo "Comportamento / Notas"</label>
+        <input type="text" id="cf-labelcomportamento" value="${escapeHtml(n.labelComportamento)}" placeholder="Ex: Notas">
+
+        <label>Nome da secção "Contacto / Tutor"</label>
+        <input type="text" id="cf-sectiontutor" value="${escapeHtml(n.sectionTutor)}" placeholder="Ex: Contacto">
+
+        <label>Nome do separador "Histórico"</label>
+        <input type="text" id="cf-historicotitle" value="${escapeHtml(n.historicoTitle)}" placeholder="Ex: Histórico">
+
+        <label style="margin-top:10px;">Campos a mostrar na ficha</label>
+        <label class="checkbox-row"><input type="checkbox" id="cf-showraca" ${n.showRaca ? 'checked' : ''}><span>Mostrar campo "Raça"</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="cf-showpeso" ${n.showPeso ? 'checked' : ''}><span>Mostrar campo "Peso"</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="cf-showmedicacao" ${n.showMedicacao ? 'checked' : ''}><span>Mostrar campo "Medicação habitual"</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="cf-showtutornome" ${n.showTutorNome ? 'checked' : ''}><span>Mostrar campo "Nome do tutor/contacto"</span></label>
+
+        <button class="btn-primary" style="width:100%;margin-top:16px;" onclick="saveCustomFieldsFromForm()">Guardar personalização</button>
+        <button class="btn-ghost" style="width:100%;margin-top:8px;border:1px solid var(--line);" onclick="resetCustomFieldsFromForm()">Repor predefinições</button>
+      </div>
+    `;
   } else if(settingsView === 'niche'){
     const current = localStorage.getItem(NICHE_KEY) || 'grooming';
     overlay.innerHTML = `
@@ -6053,6 +6228,16 @@ function renderSettingsModal(){
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
+          ${NICHE_OPTIONS.find(n => n.id === (localStorage.getItem(NICHE_KEY) || 'grooming'))?.customizable ? `
+            <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='customfields';renderSettingsModal();">
+              <div class="settings-menu-icon">📝</div>
+              <div class="settings-menu-info">
+                <div class="settings-menu-title">Personalizar campos</div>
+                <div class="settings-menu-sub">Adapta os nomes dos campos ao teu negócio</div>
+              </div>
+              <span class="settings-menu-arrow">›</span>
+            </div>
+          ` : ''}
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='themes';renderSettingsModal();">
             <div class="theme-swatches">${currentThemeSwatches.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
             <div class="settings-menu-info">
@@ -6929,7 +7114,8 @@ function renderNicheOnboardingList(){
   const descriptions = {
     grooming: 'Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.',
     estetica: 'Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.',
-    saude: 'Enfermagem ao domicílio, osteopatia e outros cuidados de saúde a utentes.'
+    saude: 'Enfermagem ao domicílio, osteopatia e outros cuidados de saúde a utentes.',
+    outros: 'Qualquer outro negócio de serviços — os nomes dos campos são totalmente personalizáveis.'
   };
   listEl.innerHTML = NICHE_OPTIONS.map(n => `
     <button class="niche-choice-card" onclick="chooseNicheOnboarding('${n.id}')">
