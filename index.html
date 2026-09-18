@@ -1174,17 +1174,17 @@
       <textarea id="next-appt-message" rows="3" placeholder="Sem marcações futuras agendadas." style="font-size:.85rem;"></textarea>
       <button class="whatsapp-btn wide" id="next-appt-send-btn" onclick="sendWhatsAppForNextAppointment()"><svg viewBox="0 0 32 32" fill="currentColor" width="15" height="15"><path d="M16.004 3C9.376 3 4 8.373 4 15c0 2.34.64 4.53 1.75 6.41L4 29l7.78-1.7A11.94 11.94 0 0 0 16 27c6.63 0 12-5.37 12-12S22.63 3 16.004 3zm6.98 17.16c-.3.84-1.5 1.55-2.4 1.7-.62.1-1.4.14-2.26-.14-.52-.17-1.19-.39-2.06-.76-3.62-1.56-5.98-5.2-6.16-5.44-.18-.24-1.47-1.95-1.47-3.72 0-1.77.93-2.63 1.26-2.99.33-.36.72-.45.96-.45.24 0 .48.002.69.012.22.01.52-.084.82.62.3.72 1.02 2.49 1.11 2.67.09.18.15.39.03.63-.12.24-.18.39-.36.6-.18.21-.38.47-.54.63-.18.18-.36.36-.15.7.21.36.93 1.53 2 2.48 1.38 1.23 2.54 1.62 2.9 1.8.36.18.57.15.78-.09.21-.24.9-1.05 1.14-1.41.24-.36.48-.3.81-.18.33.12 2.1.99 2.46 1.17.36.18.6.27.69.42.09.15.09.87-.21 1.71z"/></svg><span>Enviar confirmação da próxima marcação</span></button>
 
-      <label style="margin-top:16px;">Groomer habitual</label>
+      <label style="margin-top:16px;" id="label-groomer-habitual">Groomer habitual</label>
       <div class="groomer-select-row">
         <select id="f-groomer"></select>
         <button type="button" class="btn-secondary" style="flex-shrink:0;" onclick="toggleGroomerManager()">Gerir</button>
       </div>
       <div id="groomer-manager" class="groomer-manager" style="display:none;">
-        <label>Nome do groomer</label>
+        <label id="label-nome-groomer">Nome do groomer</label>
         <input type="text" id="new-groomer-nome" placeholder="Ex: Rita">
         <label>Cor</label>
         <div class="color-swatch-row" id="color-swatch-row"></div>
-        <button type="button" class="btn-secondary" style="width:100%;margin-top:8px;" onclick="addGroomer()">+ Adicionar groomer</button>
+        <button type="button" class="btn-secondary" style="width:100%;margin-top:8px;" onclick="addGroomer()" id="btn-add-groomer">+ Adicionar groomer</button>
         <div id="groomer-existing-list" style="margin-top:12px;"></div>
       </div>
     </div>
@@ -2532,8 +2532,9 @@ function selectNewGroomerColor(hex){
 async function renderGroomerExistingList(){
   const listEl = document.getElementById('groomer-existing-list');
   const groomers = await getAllGroomers();
+  const label = getCurrentNiche().labelGroomer;
   if(groomers.length === 0){
-    listEl.innerHTML = '<div class="hint">Ainda não há groomers criados.</div>';
+    listEl.innerHTML = `<div class="hint">Ainda não há ${label.toLowerCase()}s criados.</div>`;
     return;
   }
   listEl.innerHTML = groomers.map(g => `
@@ -2548,7 +2549,7 @@ async function renderGroomerExistingList(){
 async function addGroomer(){
   const nome = document.getElementById('new-groomer-nome').value.trim();
   if(!nome){
-    alert('Indica o nome do groomer.');
+    alert(`Indica o nome ${getCurrentNiche().labelGroomerArticle || 'do'} ${getCurrentNiche().labelGroomer.toLowerCase()}.`);
     return;
   }
   await putGroomer({ id: generateId('g'), nome, cor: selectedNewGroomerColor });
@@ -2558,7 +2559,8 @@ async function addGroomer(){
 }
 
 async function deleteGroomer(id){
-  if(!confirm('Eliminar este groomer? Os clientes que o tinham associado ficam sem groomer.')) return;
+  const label = getCurrentNiche().labelGroomer.toLowerCase();
+  if(!confirm(`Eliminar este ${label}? Os clientes que o tinham associado ficam sem ${label}.`)) return;
   await deleteGroomerDB(id);
   await loadGroomerOptions(currentClient ? currentClient.groomerId : '');
   await renderGroomerExistingList();
@@ -2568,7 +2570,7 @@ async function loadGroomerOptions(selectedId){
   const select = document.getElementById('f-groomer');
   if(!select) return;
   const groomers = await getAllGroomers();
-  select.innerHTML = '<option value="">Sem groomer definido</option>' +
+  select.innerHTML = `<option value="">Sem ${getCurrentNiche().labelGroomer.toLowerCase()} definido</option>` +
     groomers.map(g => `<option value="${g.id}">${escapeHtml(g.nome)}</option>`).join('');
   select.value = selectedId || '';
 }
@@ -5507,6 +5509,7 @@ const NICHE_OPTIONS = [
     showPeso: true,
     labelComportamento: 'Comportamento',
     labelPedidos: 'Pedidos habituais',
+    labelGroomer: 'Profissional',
     comportamentoPlaceholder: 'Ex: nervoso com o secador, tranquilo, precisa de pausas...',
     showMedicacao: false,
     pedidosPlaceholder: 'Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas...',
@@ -5582,6 +5585,7 @@ const NICHE_OPTIONS = [
     showPeso: false,
     labelComportamento: 'Preferências / Notas',
     labelPedidos: 'Pedidos habituais',
+    labelGroomer: 'Profissional',
     comportamentoPlaceholder: 'Ex: pele sensível, alergia a tinta capilar, sensibilidade a cola de pestanas, prefere ambiente calmo...',
     showMedicacao: false,
     pedidosPlaceholder: 'Ex: gel nas unhas, corte em camadas, volume russo nas pestanas, sobrancelha em fio...',
@@ -5669,6 +5673,7 @@ const NICHE_OPTIONS = [
     racaPlaceholder: '',
     showPeso: false,
     labelPedidos: 'Problemas ativos / Motivo do pedido de domicílio',
+    labelGroomer: 'Profissional',
     pedidosPlaceholder: 'Ex: ferida crónica no pé, seguimento pós-cirúrgico, avaliação de tensão arterial...',
     labelComportamento: 'Antecedentes pessoais',
     comportamentoPlaceholder: 'Ex: diabetes tipo 2, hipertensão, AVC em 2022, mobilidade reduzida...',
@@ -5750,6 +5755,7 @@ const NICHE_OPTIONS = [
     racaPlaceholder: '',
     showPeso: false,
     labelPedidos: 'Pedidos habituais',
+    labelGroomer: 'Profissional',
     pedidosPlaceholder: 'Ex: preferências ou pedidos específicos deste cliente...',
     labelComportamento: 'Notas',
     comportamentoPlaceholder: 'Ex: notas relevantes sobre este cliente...',
@@ -5834,6 +5840,7 @@ function saveCustomFieldsFromForm(){
   overrides.labelComportamento = document.getElementById('cf-labelcomportamento').value.trim() || 'Notas';
   overrides.sectionTutor = document.getElementById('cf-sectiontutor').value.trim() || 'Contacto';
   overrides.historicoTitle = document.getElementById('cf-historicotitle').value.trim() || 'Histórico';
+  overrides.labelGroomer = document.getElementById('cf-labelgroomer').value.trim() || 'Profissional';
   overrides.showRaca = document.getElementById('cf-showraca').checked;
   overrides.showPeso = document.getElementById('cf-showpeso').checked;
   overrides.showMedicacao = document.getElementById('cf-showmedicacao').checked;
@@ -5933,6 +5940,13 @@ function applyNicheUI(){
   setText('label-comportamento', n.labelComportamento);
   setPlaceholder('f-comportamento', n.comportamentoPlaceholder);
   setText('label-pedidos', n.labelPedidos);
+  setText('label-groomer-habitual', n.labelGroomer + ' habitual');
+  setText('label-nome-groomer', 'Nome do(a) ' + n.labelGroomer.toLowerCase());
+  setText('btn-add-groomer', '+ Adicionar ' + n.labelGroomer.toLowerCase());
+  const groomerSelect = document.getElementById('f-groomer');
+  if(groomerSelect && groomerSelect.options.length > 0 && groomerSelect.options[0].value === ''){
+    groomerSelect.options[0].textContent = 'Sem ' + n.labelGroomer.toLowerCase() + ' definido';
+  }
   setPlaceholder('f-pedidos', n.pedidosPlaceholder);
   setDisplay('field-medicacao-wrap', n.showMedicacao);
   setPlaceholder('f-payment-nota', n.notaExamplePlaceholder);
@@ -6075,6 +6089,9 @@ function renderSettingsModal(){
 
         <label>Nome do separador "Histórico"</label>
         <input type="text" id="cf-historicotitle" value="${escapeHtml(n.historicoTitle)}" placeholder="Ex: Histórico">
+
+        <label>Nome usado para "Groomer" (quem presta o serviço)</label>
+        <input type="text" id="cf-labelgroomer" value="${escapeHtml(n.labelGroomer)}" placeholder="Ex: Profissional">
 
         <label style="margin-top:10px;">Campos a mostrar na ficha</label>
         <label class="checkbox-row"><input type="checkbox" id="cf-showraca" ${n.showRaca ? 'checked' : ''}><span>Mostrar campo "Raça"</span></label>
