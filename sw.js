@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v104-stock';
+const CACHE_NAME = 'fichas-tosquia-v106-aviso-agenda';
 const FILES_TO_CACHE = [
   './',
   './index.html',

@@ -468,7 +468,9 @@
   }
   .history-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
   .history-date{font-size:.78rem;font-weight:700;color:var(--teal-dark);}
-  .history-photo{width:100%;max-height:220px;object-fit:cover;border-radius:9px;cursor:pointer;margin-bottom:8px;background:var(--line);}
+  .history-photo{width:100%;max-height:220px;object-fit:cover;border-radius:9px;cursor:pointer;background:var(--line);}
+  .history-photo-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));gap:6px;margin-bottom:8px;}
+  .history-photo-grid .history-photo{max-height:100px;margin-bottom:0;}
   .history-note{font-size:.87rem;color:var(--ink);line-height:1.45;white-space:pre-wrap;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .hint{font-size:.75rem;color:var(--muted);margin-top:6px;}
@@ -724,6 +726,10 @@
   .client-pick-row.create-new{background:#EAF3EF;}
   .client-pick-row.create-new .name{color:var(--teal-dark);}
   .client-pick-row.create-new .sub{color:#4C8A5E;}
+  .client-pick-row.has-aviso{background:#FEF8E4;}
+  .client-pick-row.has-aviso .name{color:#8A6A1A;}
+  .client-pick-row.has-aviso.selected{background:#D9A82A;}
+  .client-pick-row.has-aviso.selected .name, .client-pick-row.has-aviso.selected .sub{color:#fff;}
 
   /* Anamnese */
   .anamnese-overlay{
@@ -1216,10 +1222,14 @@
         <option>2 em 2 meses</option>
         <option>Sem regularidade</option>
       </select>
-      <label>Pedidos habituais</label>
+      <label id="label-pedidos">Pedidos habituais</label>
       <textarea id="f-pedidos" placeholder="Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas..."></textarea>
       <label id="label-comportamento">Comportamento</label>
       <textarea id="f-comportamento" placeholder="Ex: nervoso com o secador, tranquilo, precisa de pausas..."></textarea>
+      <div id="field-medicacao-wrap" style="display:none;">
+        <label>Medicação habitual</label>
+        <textarea id="f-medicacao" placeholder="Ex: Varfarina 5mg (1x/dia), Metformina 850mg (2x/dia)..."></textarea>
+      </div>
       <label>Observações</label>
       <textarea id="f-observacoes" placeholder="Alergias, cuidados especiais, notas gerais..."></textarea>
 
@@ -1299,13 +1309,10 @@
       <label>Nota</label>
       <textarea id="f-history-nota" placeholder="Ex: Lâmina 7F no corpo, tesoura na cabeça, carinha de urso, comprimento médio..."></textarea>
 
-      <div class="photo-upload" id="history-photo-preview-wrap" style="display:none;margin-top:10px;">
-        <img id="history-photo-preview" class="photo-preview" src="" alt="">
-        <button type="button" class="btn-ghost" onclick="removeStagedHistoryPhoto()">Remover foto</button>
-      </div>
+      <div id="history-staged" class="staged-photos"></div>
       <div class="add-photo-row">
-        <label class="file-btn" for="history-photo-input">+ Adicionar foto (opcional)</label>
-        <input type="file" accept="image/*" id="history-photo-input" onchange="handleHistoryPhotoStage(event)">
+        <label class="file-btn" for="history-photo-input">+ Adicionar fotos (opcional)</label>
+        <input type="file" accept="image/*" id="history-photo-input" multiple onchange="handleHistoryPhotoStage(event)">
       </div>
       <button class="btn-secondary" style="width:100%;margin-top:10px;" onclick="addHistoryEntry()">Adicionar ao histórico</button>
 
@@ -2621,7 +2628,7 @@ function closeForm(){
 }
 
 function clearForm(){
-  ['f-nome','f-raca','f-idade','f-sexo','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
+  ['f-nome','f-raca','f-idade','f-sexo','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-medicacao','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('f-aviso-ativo').checked = false;
@@ -2649,6 +2656,7 @@ function fillForm(c){
   document.getElementById('f-recorrencia').value = c.recorrencia || '';
   document.getElementById('f-pedidos').value = c.pedidos || '';
   document.getElementById('f-comportamento').value = c.comportamento || '';
+  document.getElementById('f-medicacao').value = c.medicacao || '';
   document.getElementById('f-observacoes').value = c.observacoes || '';
   document.getElementById('f-aviso-ativo').checked = !!c.temAviso;
   document.getElementById('f-aviso-texto').value = c.avisoTexto || '';
@@ -2669,7 +2677,8 @@ function fillForm(c){
     img.classList.add('placeholder');
   }
   renderGallery();
-  removeStagedHistoryPhoto();
+  pendingHistoryPhotos = [];
+  renderStagedHistoryPhotos();
   document.getElementById('f-history-nota').value = '';
   renderAppointments();
   pendingIncidentPhotos = [];
@@ -2767,41 +2776,58 @@ async function handleMainPhoto(e){
   img.classList.remove('placeholder');
 }
 
-let pendingHistoryPhoto = null;
+let pendingHistoryPhotos = [];
 
 async function handleHistoryPhotoStage(e){
-  const file = e.target.files[0];
-  if(!file) return;
-  pendingHistoryPhoto = await compressImageFile(file, 1280, 0.75);
-  const wrap = document.getElementById('history-photo-preview-wrap');
-  const img = document.getElementById('history-photo-preview');
-  img.src = pendingHistoryPhoto;
-  img.classList.remove('placeholder');
-  wrap.style.display = 'flex';
+  const files = Array.from(e.target.files || []);
+  for(const file of files){
+    const dataUrl = await compressImageFile(file, 1280, 0.75);
+    pendingHistoryPhotos.push(dataUrl);
+  }
+  renderStagedHistoryPhotos();
   e.target.value = '';
 }
 
-function removeStagedHistoryPhoto(){
-  pendingHistoryPhoto = null;
-  document.getElementById('history-photo-preview-wrap').style.display = 'none';
-  document.getElementById('history-photo-preview').src = '';
+function removeStagedHistoryPhoto(idx){
+  pendingHistoryPhotos.splice(idx, 1);
+  renderStagedHistoryPhotos();
+}
+
+function renderStagedHistoryPhotos(){
+  const el = document.getElementById('history-staged');
+  if(!el) return;
+  el.innerHTML = pendingHistoryPhotos.map((src, idx) => `
+    <div class="staged-thumb">
+      <img src="${src}">
+      <button onclick="removeStagedHistoryPhoto(${idx})">×</button>
+    </div>
+  `).join('');
+}
+
+// Devolve sempre um array de fotos para uma entrada do histórico, seja de registos
+// novos (fotos[]) ou antigos, criados antes de suportarmos várias fotos (img único).
+function getHistoryEntryPhotos(item){
+  if(Array.isArray(item.fotos)) return item.fotos;
+  if(item.img) return [item.img];
+  return [];
 }
 
 async function addHistoryEntry(){
   const nota = document.getElementById('f-history-nota').value.trim();
-  if(!nota && !pendingHistoryPhoto){
-    alert('Escreve uma nota ou adiciona uma fotografia antes de adicionar ao histórico.');
+  if(!nota && pendingHistoryPhotos.length === 0){
+    alert('Escreve uma nota ou adiciona pelo menos uma fotografia antes de adicionar ao histórico.');
     return;
   }
   if(!currentClient.history) currentClient.history = [];
   currentClient.history.push({
-    img: pendingHistoryPhoto || null,
+    fotos: [...pendingHistoryPhotos],
     nota,
     date: isoDate(new Date())
   });
   await saveClient(true);
   document.getElementById('f-history-nota').value = '';
-  removeStagedHistoryPhoto();
+  pendingHistoryPhotos = [];
+  renderStagedHistoryPhotos();
   renderGallery();
 }
 
@@ -2819,13 +2845,19 @@ function renderGallery(){
   sorted.forEach(item => {
     const card = document.createElement('div');
     card.className = 'history-card';
-    const safeImg = item.img ? item.img.replace(/'/g, "\\'") : '';
+    const fotos = getHistoryEntryPhotos(item);
+    const fotosHtml = fotos.length > 0
+      ? `<div class="history-photo-grid">${fotos.map(src => {
+          const safeImg = src.replace(/'/g, "\\'");
+          return `<img src="${src}" class="history-photo" onclick="openLightbox('${safeImg}')">`;
+        }).join('')}</div>`
+      : '';
     card.innerHTML = `
       <div class="history-card-head">
         <span class="history-date">${formatDate(item.date)}</span>
         <button class="incident-del" onclick="removeHistoryPhoto(${item._idx})">Eliminar</button>
       </div>
-      ${item.img ? `<img src="${item.img}" class="history-photo" onclick="openLightbox('${safeImg}')">` : ''}
+      ${fotosHtml}
       ${item.nota ? `<div class="history-note">${escapeHtml(item.nota)}</div>` : ''}
     `;
     grid.appendChild(card);
@@ -3518,6 +3550,7 @@ async function saveClient(silent){
   currentClient.groomerId = document.getElementById('f-groomer').value;
   currentClient.pedidos = document.getElementById('f-pedidos').value.trim();
   currentClient.comportamento = document.getElementById('f-comportamento').value.trim();
+  currentClient.medicacao = document.getElementById('f-medicacao').value.trim();
   currentClient.observacoes = document.getElementById('f-observacoes').value.trim();
   currentClient.temAviso = document.getElementById('f-aviso-ativo').checked;
   currentClient.avisoTexto = document.getElementById('f-aviso-texto').value.trim();
@@ -4501,14 +4534,16 @@ async function renderDayTimelineHtml(items, date){
       return;
     }
 
-    const bg = item.noShow ? '#C0554A' : (item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)'));
-    const borderColor = item.noShow ? '#8F3E36' : (item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)'));
+    const hasAviso = !!(item.client && item.client.temAviso);
+    const bg = item.noShow ? '#C0554A' : (hasAviso ? '#D9A82A' : (item.done ? 'var(--muted)' : (item.groomerColor || 'var(--teal)')));
+    const borderColor = item.noShow ? '#8F3E36' : (hasAviso ? '#A9800E' : (item.done ? 'var(--muted)' : (item.groomerColor ? shadeColor(item.groomerColor, -20) : 'var(--mustard)')));
+    const avisoTitle = hasAviso ? ` — ⚠️ ${item.client.avisoTexto || 'Atenção especial'}` : '';
     eventsHtml += `
-      <div class="timeline-block${item.done ? ' done' : ''}" style="${posStyle}background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")'>
+      <div class="timeline-block${item.done ? ' done' : ''}" style="${posStyle}background:${bg};border-left-color:${borderColor};" onclick='window.__openClientFromAgenda("${item.client.id}")' title="${escapeHtml((item.client.nome || 'Sem nome') + avisoTitle)}">
         <button class="timeline-edit-btn" onclick='event.stopPropagation();editAppointment("${item.client.id}", ${item.idx})'>✏️</button>
         ${!item.done ? `<button class="timeline-paid-btn" onclick='event.stopPropagation();openMarkPaidModal("${item.client.id}", ${item.idx})'>💰</button>` : ''}
         ${!item.done ? `<button class="timeline-noshow-btn" onclick='event.stopPropagation();markNoShow("${item.client.id}", ${item.idx})' title="Cliente não apareceu">🚫</button>` : ''}
-        <span class="t-name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫' : ''}</span>
+        <span class="t-name">${hasAviso && !item.noShow ? '⚠️ ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫' : ''}</span>
         <span class="t-sub">${item.time}–${endTimeStr}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}</span>
       </div>
     `;
@@ -4598,9 +4633,10 @@ async function renderMonthHtml(items, refDate){
         chips += `<span class="month-chip gcal" title="${escapeHtml(label)} (Google, por confirmar)">${escapeHtml(label)}</span>`;
         return;
       }
-      const bg = it.groomerColor || 'var(--teal)';
+      const bg = it.client && it.client.temAviso ? '#D9A82A' : (it.groomerColor || 'var(--teal)');
       const doneClass = it.done ? ' done' : '';
-      chips += `<span class="month-chip${doneClass}" style="background:${bg};" title="${escapeHtml(label)}${it.done ? ' (concluída)' : ''}">${escapeHtml(label)}</span>`;
+      const avisoPrefix = (it.client && it.client.temAviso) ? '⚠️ ' : '';
+      chips += `<span class="month-chip${doneClass}" style="background:${bg};" title="${escapeHtml(label)}${it.done ? ' (concluída)' : ''}">${avisoPrefix}${escapeHtml(label)}</span>`;
     });
     if(chips) chips = `<div class="month-chips">${chips}</div>`;
 
@@ -4651,14 +4687,15 @@ async function renderSelectedDayListHtml(items, date){
         `;
         return;
       }
-      const borderStyle = item.noShow ? 'border-left:4px solid #C0554A;' : (item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : '');
+      const hasAvisoRow = !!(item.client && item.client.temAviso);
+      const borderStyle = item.noShow ? 'border-left:4px solid #C0554A;' : (hasAvisoRow ? 'border-left:4px solid #D9A82A;background:#FEF8E4;' : (item.groomerColor && !item.done ? `border-left:4px solid ${item.groomerColor};` : ''));
       const waUrl = whatsappReminderUrl(item.client, item);
       rows += `
         <div class="agenda-item${item.done ? ' done' : ''}" style="${borderStyle}">
           <div class="agenda-item-top">
             <div class="agenda-time">${item.time}–${getEffectiveEndTime(item)}</div>
             <div class="agenda-info" data-open="${item.client.id}" style="cursor:pointer;">
-              <div class="name">${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫 Não apareceu' : ''}</div>
+              <div class="name">${hasAvisoRow && !item.noShow ? '⚠️ ' : ''}${escapeHtml(item.client.nome || 'Sem nome')}${item.done ? ' ✓' : ''}${item.noShow ? ' 🚫 Não apareceu' : ''}</div>
               <div class="sub">${escapeHtml(item.client.tutorNome || '')}${item.nota ? ' · ' + escapeHtml(item.nota) : ''}${item.groomerName ? ' · ' + escapeHtml(item.groomerName) : ''}</div>
             </div>
           </div>
@@ -4802,9 +4839,9 @@ function renderQuickAddClientList(filter){
   `;
 
   const existingRowsHtml = sorted.map(c => `
-    <div class="client-pick-row${c.id === quickAddSelectedClientId ? ' selected' : ''}" data-id="${c.id}">
-      <div class="name">${escapeHtml(c.nome || 'Sem nome')}</div>
-      <div class="sub">${escapeHtml(c.tutorNome || '')}${c.raca ? ' · ' + escapeHtml(c.raca) : ''}</div>
+    <div class="client-pick-row${c.id === quickAddSelectedClientId ? ' selected' : ''}${c.temAviso ? ' has-aviso' : ''}" data-id="${c.id}">
+      <div class="name">${c.temAviso ? '⚠️ ' : ''}${escapeHtml(c.nome || 'Sem nome')}</div>
+      <div class="sub">${escapeHtml(c.tutorNome || '')}${c.raca ? ' · ' + escapeHtml(c.raca) : ''}${c.temAviso ? ' · ⚠️ ' + escapeHtml(c.avisoTexto || 'Atenção especial') : ''}</div>
     </div>
   `).join('');
 
@@ -5447,7 +5484,9 @@ const NICHE_OPTIONS = [
     racaPlaceholder: 'Ex: Bichon Frisé',
     showPeso: true,
     labelComportamento: 'Comportamento',
+    labelPedidos: 'Pedidos habituais',
     comportamentoPlaceholder: 'Ex: nervoso com o secador, tranquilo, precisa de pausas...',
+    showMedicacao: false,
     pedidosPlaceholder: 'Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas...',
     notaExamplePlaceholder: 'Ex: tosquia completa + banho',
     historyNotaPlaceholder: 'Ex: Lâmina 7F no corpo, tesoura na cabeça, carinha de urso, comprimento médio...',
@@ -5520,7 +5559,9 @@ const NICHE_OPTIONS = [
     racaPlaceholder: '',
     showPeso: false,
     labelComportamento: 'Preferências / Notas',
+    labelPedidos: 'Pedidos habituais',
     comportamentoPlaceholder: 'Ex: pele sensível, alergia a tinta capilar, sensibilidade a cola de pestanas, prefere ambiente calmo...',
+    showMedicacao: false,
     pedidosPlaceholder: 'Ex: gel nas unhas, corte em camadas, volume russo nas pestanas, sobrancelha em fio...',
     notaExamplePlaceholder: 'Ex: manicure + verniz gel',
     historyNotaPlaceholder: 'Ex: coloração 6.0, técnica de volume russo nas pestanas, produto X aplicado, resultado bom, sem reação...',
@@ -5582,6 +5623,86 @@ const NICHE_OPTIONS = [
       'Confirmo que não tenho conhecimento de alergias (incluindo a produtos capilares, tintas ou colas de pestanas), condições de pele, couro cabeludo ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
       'Autorizo a recolha e utilização de dados e fotografias (antes/depois) para fins de registo interno, histórico de tratamentos e comunicação relacionada com o serviço.',
       'Assumo a responsabilidade por reações a produtos ou tratamentos resultantes de informação de saúde não comunicada, isentando o estabelecimento de responsabilidade nesses casos.'
+    ]
+  },
+  {
+    id: 'saude',
+    label: '🩺 Saúde ao Domicílio',
+    appTitle: 'Mind your Business',
+    appTagline: 'for Home Care',
+    appEmoji: '🩺',
+    emptyStateIcon: '🩺',
+    placeholderIcon: '➕',
+    reminderEmoji: '🩺',
+    defaultReminderTemplate: 'Olá {tutor}! 🩺 Só a confirmar a visita agendada para o dia {data} às {hora}. Fica combinado?',
+    fallbackClientName: 'o(a) seu/sua utente',
+    unitLabel: 'utente',
+    unitLabelCap: 'Utente',
+    subtitle: 'As tuas fichas de utente, sempre disponíveis — mesmo sem internet',
+    sectionAnimal: 'Dados do utente',
+    labelNome: 'Nome',
+    nomePlaceholder: 'Ex: António Ferreira',
+    businessNamePlaceholder: 'Ex: Cuidados ao Domicílio Lda',
+    showRaca: false,
+    racaPlaceholder: '',
+    showPeso: false,
+    labelPedidos: 'Problemas ativos / Motivo do pedido de domicílio',
+    pedidosPlaceholder: 'Ex: ferida crónica no pé, seguimento pós-cirúrgico, avaliação de tensão arterial...',
+    labelComportamento: 'Antecedentes pessoais',
+    comportamentoPlaceholder: 'Ex: diabetes tipo 2, hipertensão, AVC em 2022, mobilidade reduzida...',
+    showMedicacao: true,
+    notaExamplePlaceholder: 'Ex: penso de ferida + avaliação de tensão arterial',
+    historyNotaPlaceholder: 'Ex: ferida em fase de granulação, sem sinais de infeção, penso trocado, evolução favorável...',
+    incidentsHint: 'Usa esta secção para documentar situações clínicas relevantes — reação a medicação, queda, agravamento de ferida, etc. — nota de texto, fotos, ou ambos, com data automática. Fica guardado como registo clínico.',
+    incidentNotaPlaceholder: 'Ex: Ferida com sinais de infeção (rubor, calor local), referenciado para avaliação médica.',
+    pricingSearchPlaceholder: '🔍 Pesquisar serviço ou tipo de visita...',
+    sectionTutor: 'Contacto',
+    showTutorNome: true,
+    avisoCheckboxLabel: '⚠️ Este utente precisa de atenção especial',
+    avisoTextoPlaceholder: 'Ex: risco de queda, agitação, dificuldade de mobilização, isolamento social...',
+    idadePlaceholder: 'Ex: 78 anos',
+    labelSexo: 'Sexo',
+    sexoLabels: ['Masculino', 'Feminino', 'Outro'],
+    expenseDescPlaceholder: 'Ex: Material de penso, Luvas, Combustível...',
+    shoppingPlaceholder: 'Ex: Compressas, soro fisiológico, luvas...',
+    hintAviso: 'Marca isto se for relevante (ex: risco de queda, isolamento) — a ficha deste utente passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.',
+    searchPlaceholder: 'Procurar por nome ou telefone...',
+    searchAnimalPlaceholder: 'Pesquisar por nome do utente...',
+    searchAnimalHint: 'Escreve o nome do utente para pesquisar.',
+    quickAddLabel: 'Utente',
+    quickAddButtonLabel: '+ Marcar visita neste dia',
+    associarLabel: 'Associar a que utente?',
+    alertNomeVazio: 'Indica pelo menos o nome do utente antes de guardar.',
+    alertEscolheLista: 'Escolhe um utente na lista.',
+    alertEscolheOuCria: 'Escolhe um utente na lista, ou cria um novo.',
+    fallbackDeleteWord: 'este utente',
+    faltasClearConfirm: 'Limpar o registo de faltas deste utente? O cartão deixa de aparecer destacado a vermelho na lista de Clientes.',
+    noShowConfirm: 'Marcar esta visita como "Utente não esteve presente"? Isto fica registado na ficha do utente, que passa a aparecer destacado a vermelho na lista de Clientes.',
+    historicoTitle: 'Histórico de visitas',
+    historicoHint: 'Regista os detalhes de cada visita — avaliação, cuidados prestados, evolução, etc. — com ou sem fotografia (ex: evolução de uma ferida ao longo do tempo).',
+    anamneseHint: 'Gera automaticamente uma ficha de consentimento informado com os dados do utente, autorização de recolha de dados/fotografias e responsabilização — pronta para ser assinada no telemóvel ou tablet.',
+    photoSyncHint: 'As <strong>fotografias</strong> (histórico de visitas, ocorrências, assinaturas) também sincronizam',
+    perUnitTitle: 'Custo médio por utente',
+    perUnitHint: 'Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada utente custa realmente e se os teus preços atuais chegam.',
+    noPaymentsHint: 'Ainda não há pagamentos registados neste mês. Regista os pagamentos de cada visita na ficha do utente para começares a ver aqui a saúde financeira do teu negócio.',
+    pricingCategories: {
+      servicos: [
+        'Consulta de enfermagem ao domicílio', 'Tratamento de feridas / Penso',
+        'Administração de medicação', 'Colheita de sangue', 'Avaliação de sinais vitais',
+        'Consulta de osteopatia', 'Sessão de fisioterapia', 'Avaliação de saúde geral',
+        'Outro'
+      ],
+      dimensaoLabel: 'Duração',
+      dimensoes: ['Qualquer duração', 'Até 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+      tipoLabel: 'Tipo de visita',
+      tipos: ['Qualquer tipo', 'Domicílio', 'Consultório', 'Urgente', 'Rotina / Seguimento'],
+      racaLabel: 'Nota (opcional)',
+      racaPlaceholder: 'Ex: requer material específico — deixa vazio se não se aplicar'
+    },
+    defaultDeclarations: [
+      'Autorizo a prestação dos cuidados de saúde propostos, tendo sido informado(a) sobre a sua natureza e finalidade.',
+      'Autorizo a recolha e utilização de dados clínicos e fotografias (ex: evolução de feridas) para fins de registo interno, histórico de cuidados e comunicação relacionada com o serviço.',
+      'Confirmo que a informação de saúde e medicação habitual fornecida é verdadeira e completa, tanto quanto é do meu conhecimento.'
     ]
   }
 ];
@@ -5669,7 +5790,9 @@ function applyNicheUI(){
   setPlaceholder('f-raca', n.racaPlaceholder);
   setText('label-comportamento', n.labelComportamento);
   setPlaceholder('f-comportamento', n.comportamentoPlaceholder);
+  setText('label-pedidos', n.labelPedidos);
   setPlaceholder('f-pedidos', n.pedidosPlaceholder);
+  setDisplay('field-medicacao-wrap', n.showMedicacao);
   setPlaceholder('f-payment-nota', n.notaExamplePlaceholder);
   setText('section-title-tutor', n.sectionTutor);
   setText('label-aviso-checkbox', n.avisoCheckboxLabel);
@@ -6209,7 +6332,16 @@ async function prepareClientForSync(client){
   const copy = { ...client };
   copy.foto = await prepareImageForSync(client.foto);
   if(Array.isArray(client.history)){
-    copy.history = await Promise.all(client.history.map(async h => ({ ...h, img: await prepareImageForSync(h.img) })));
+    copy.history = await Promise.all(client.history.map(async h => {
+      const entry = { ...h };
+      if(Array.isArray(h.fotos)){
+        entry.fotos = await Promise.all(h.fotos.map(prepareImageForSync));
+      }
+      if(h.img){
+        entry.img = await prepareImageForSync(h.img); // compatibilidade com registos antigos
+      }
+      return entry;
+    }));
   }
   if(Array.isArray(client.registos)){
     copy.registos = await Promise.all(client.registos.map(async r => ({
@@ -6227,7 +6359,16 @@ async function hydrateClientImages(client){
   const copy = { ...client };
   copy.foto = await resolveImageFromSync(client.foto);
   if(Array.isArray(client.history)){
-    copy.history = await Promise.all(client.history.map(async h => ({ ...h, img: await resolveImageFromSync(h.img) })));
+    copy.history = await Promise.all(client.history.map(async h => {
+      const entry = { ...h };
+      if(Array.isArray(h.fotos)){
+        entry.fotos = await Promise.all(h.fotos.map(resolveImageFromSync));
+      }
+      if(h.img){
+        entry.img = await resolveImageFromSync(h.img); // compatibilidade com registos antigos
+      }
+      return entry;
+    }));
   }
   if(Array.isArray(client.registos)){
     copy.registos = await Promise.all(client.registos.map(async r => ({
@@ -6781,7 +6922,8 @@ function renderNicheOnboardingList(){
   if(!listEl) return;
   const descriptions = {
     grooming: 'Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.',
-    estetica: 'Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.'
+    estetica: 'Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.',
+    saude: 'Enfermagem ao domicílio, osteopatia e outros cuidados de saúde a utentes.'
   };
   listEl.innerHTML = NICHE_OPTIONS.map(n => `
     <button class="niche-choice-card" onclick="chooseNicheOnboarding('${n.id}')">
