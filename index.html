@@ -523,6 +523,7 @@
   .icon-btn-whatsapp svg{width:16px;height:16px;}
   .icon-btn-call{background:var(--teal);border-color:var(--teal);color:#fff;}
   .icon-btn-email{background:#5B7FBF;border-color:#5B7FBF;color:#fff;}
+  .icon-btn-maps{background:#3E8A5E;border-color:#3E8A5E;color:#fff;}
   .field-with-action{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
   .field-with-action input{flex:1;margin-bottom:0;}
   .field-with-action .icon-btn{flex-shrink:0;width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;}
@@ -1294,6 +1295,12 @@
       </div>
       <label>NIF</label>
       <input type="text" id="f-tutor-nif" placeholder="Ex: 123456789">
+      <label>Morada</label>
+      <div class="field-with-action">
+        <input type="text" id="f-tutor-morada" placeholder="Ex: Rua das Flores, 123, Lisboa" oninput="updateContactActionButtons()">
+        <a id="maps-action-btn" class="icon-btn icon-btn-maps disabled" href="#" onclick="return !this.classList.contains('disabled');" target="_blank" title="Abrir no GPS"></a>
+      </div>
+      <div class="hint" style="margin-top:-6px;">Útil se fizeres deslocações a casa do cliente — o botão abre a morada diretamente na app de GPS/mapas do telemóvel.</div>
       <div class="hint">O link do WhatsApp é gerado automaticamente a partir do contacto.</div>
     </div>
 
@@ -2635,7 +2642,7 @@ function closeForm(){
 }
 
 function clearForm(){
-  ['f-nome','f-raca','f-idade','f-sexo','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-medicacao','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif'].forEach(id=>{
+  ['f-nome','f-raca','f-idade','f-sexo','f-peso','f-nascimento','f-recorrencia','f-pedidos','f-comportamento','f-medicacao','f-observacoes','f-tutor-nome','f-tutor-contacto','f-tutor-email','f-tutor-nif','f-tutor-morada'].forEach(id=>{
     document.getElementById(id).value = '';
   });
   document.getElementById('f-aviso-ativo').checked = false;
@@ -2672,6 +2679,7 @@ function fillForm(c){
   document.getElementById('f-tutor-contacto').value = c.tutorContacto || '';
   document.getElementById('f-tutor-email').value = c.tutorEmail || '';
   document.getElementById('f-tutor-nif').value = c.tutorNif || '';
+  document.getElementById('f-tutor-morada').value = c.tutorMorada || '';
   updateContactActionButtons();
 
   currentMainPhoto = c.foto || null;
@@ -3566,6 +3574,7 @@ async function saveClient(silent){
   currentClient.tutorContacto = document.getElementById('f-tutor-contacto').value.trim();
   currentClient.tutorEmail = document.getElementById('f-tutor-email').value.trim();
   currentClient.tutorNif = document.getElementById('f-tutor-nif').value.trim();
+  currentClient.tutorMorada = document.getElementById('f-tutor-morada').value.trim();
   currentClient.foto = currentMainPhoto;
 
   if(!currentClient.nome){
@@ -3647,6 +3656,12 @@ const WHATSAPP_ICON_SVG = '<svg viewBox="0 0 32 32" fill="currentColor"><path d=
 const PHONE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.24 1.01l-2.21 2.2z"/></svg>';
 
 const EMAIL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v.01L12 12l8-5.99V6H4zm16 12V8.24l-7.4 5.55a1 1 0 0 1-1.2 0L4 8.24V18h16z"/></svg>';
+const MAPS_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
+
+function mapsUrl(morada){
+  if(!morada || !morada.trim()) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(morada.trim())}`;
+}
 
 // Atualiza os pequenos botões (WhatsApp, Ligar, Email) junto aos campos de contacto
 // dentro da própria ficha — ficam ativos assim que houver um valor válido, sem
@@ -3654,10 +3669,13 @@ const EMAIL_ICON_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4
 function updateContactActionButtons(){
   const phone = document.getElementById('f-tutor-contacto').value;
   const email = document.getElementById('f-tutor-email').value;
+  const moradaEl = document.getElementById('f-tutor-morada');
+  const morada = moradaEl ? moradaEl.value : '';
 
   const waBtn = document.getElementById('whatsapp-action-btn');
   const callBtn = document.getElementById('call-action-btn');
   const mailBtn = document.getElementById('email-action-btn');
+  const mapsBtn = document.getElementById('maps-action-btn');
   if(!waBtn || !callBtn || !mailBtn) return;
 
   waBtn.innerHTML = WHATSAPP_ICON_SVG;
@@ -3674,6 +3692,13 @@ function updateContactActionButtons(){
   callBtn.classList.toggle('disabled', !tel);
   mailBtn.href = mail || '#';
   mailBtn.classList.toggle('disabled', !mail);
+
+  if(mapsBtn){
+    mapsBtn.innerHTML = MAPS_ICON_SVG;
+    const maps = mapsUrl(morada);
+    mapsBtn.href = maps || '#';
+    mapsBtn.classList.toggle('disabled', !maps);
+  }
 }
 
 
@@ -3804,6 +3829,7 @@ async function renderList(){
     return (c.nome||'').toLowerCase().includes(term) ||
       (c.tutorNome||'').toLowerCase().includes(term) ||
       (c.tutorEmail||'').toLowerCase().includes(term) ||
+      (c.tutorMorada||'').toLowerCase().includes(term) ||
       (termDigits && phoneDigits.includes(termDigits));
   }).sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
 
@@ -3826,6 +3852,7 @@ async function renderList(){
     const wa = whatsappUrl(c.tutorContacto);
     const tel = telUrl(c.tutorContacto);
     const mail = mailtoUrl(c.tutorEmail);
+    const maps = mapsUrl(c.tutorMorada);
     const warningBadges = hasWarning
       ? `<span class="warning-badge">⚠️ ${escapeHtml(c.avisoTexto || 'Atenção especial')}</span>`
       : '';
@@ -3843,6 +3870,7 @@ async function renderList(){
         ${wa ? `<a class="icon-btn icon-btn-whatsapp" href="${wa}" onclick="event.stopPropagation();" target="_blank" title="Abrir WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
         ${tel ? `<a class="icon-btn icon-btn-call" href="${tel}" onclick="event.stopPropagation();" title="Ligar">${PHONE_ICON_SVG}</a>` : ''}
         ${mail ? `<a class="icon-btn icon-btn-email" href="${mail}" onclick="event.stopPropagation();" title="Enviar email">${EMAIL_ICON_SVG}</a>` : ''}
+        ${maps ? `<a class="icon-btn icon-btn-maps" href="${maps}" onclick="event.stopPropagation();" target="_blank" title="Abrir no GPS">${MAPS_ICON_SVG}</a>` : ''}
       </div>
     `;
     card.onclick = () => openForm(c);

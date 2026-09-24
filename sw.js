@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v111-profissional-uniforme';
+const CACHE_NAME = 'fichas-tosquia-v112-morada-gps';
 const FILES_TO_CACHE = [
   './',
   './index.html',
