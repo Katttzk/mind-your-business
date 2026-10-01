@@ -845,6 +845,7 @@
   .reminder-row .r-when{font-size:.75rem;color:var(--muted);}
   .reminder-sent-btn{background:transparent;color:var(--muted);font-size:.72rem;padding:4px 6px;}
   .invoice-box{background:#E7F1FA;border-color:#C4DDF0;}
+  .birthday-box{background:#FDEDF3;border-color:#F3C9DB;}
   .invoice-box h3{color:#2B5F86;}
   .invoice-box .reminder-row{border-color:#C4DDF0;}
   .icon-btn-copy{background:#DCEAF6;border-color:#B7D6EC;color:#2B5F86;flex-shrink:0;}
@@ -1018,6 +1019,7 @@
 <div id="agenda-screen" class="screen active">
   <div id="reminders-panel"></div>
   <div id="invoice-reminders-panel"></div>
+  <div id="birthday-reminders-panel"></div>
   <div class="agenda-subtabs">
     <button id="subtab-day" class="active" onclick="setAgendaView('day')">Dia</button>
     <button id="subtab-week" onclick="setAgendaView('week')">Semana</button>
@@ -3782,6 +3784,114 @@ function resetReminderTemplateFromForm(){
   renderSettingsModal();
 }
 
+// ---------- Mensagem de aniversário ----------
+function getBirthdayTemplate(){
+  const stored = localStorage.getItem(nicheKey('mtb_birthday_template'));
+  if(stored) return stored;
+  return getCurrentNiche().defaultBirthdayTemplate;
+}
+
+function saveBirthdayTemplate(text){
+  localStorage.setItem(nicheKey('mtb_birthday_template'), text);
+}
+
+function resetBirthdayTemplate(){
+  localStorage.removeItem(nicheKey('mtb_birthday_template'));
+}
+
+function fillBirthdayTemplate(template, client){
+  const n = getCurrentNiche();
+  const nome = (client && client.nome) || n.fallbackClientName;
+  const tutorSource = (client && (client.tutorNome || client.nome)) || '';
+  const tutorFirst = tutorSource ? tutorSource.trim().split(' ')[0] : '';
+  return template
+    .split('{nome_artigo}').join(getNomeComArtigo(client, nome))
+    .split('{nome}').join(nome)
+    .split('{tutor}').join(tutorFirst);
+}
+
+function buildBirthdayMessage(client){
+  return fillBirthdayTemplate(getBirthdayTemplate(), client);
+}
+
+function whatsappBirthdayUrl(client){
+  const base = whatsappUrl(client && client.tutorContacto);
+  if(!base) return null;
+  return `${base}?text=${encodeURIComponent(buildBirthdayMessage(client))}`;
+}
+
+// Devolve os clientes cujo dia e mês de nascimento coincidem com hoje (ano é ignorado).
+async function getClientsWithBirthdayToday(){
+  const clients = await getAllClients();
+  const today = new Date();
+  const todayMonth = today.getMonth() + 1;
+  const todayDay = today.getDate();
+  return clients.filter(c => {
+    if(!c.nascimento) return false;
+    const [, m, d] = c.nascimento.split('-').map(Number);
+    return m === todayMonth && d === todayDay;
+  });
+}
+
+async function renderBirthdayRemindersPanel(){
+  const panelEl = document.getElementById('birthday-reminders-panel');
+  if(!panelEl) return;
+
+  const birthdayClients = await getClientsWithBirthdayToday();
+  if(birthdayClients.length === 0){
+    panelEl.innerHTML = '';
+    return;
+  }
+
+  panelEl.innerHTML = `
+    <div class="reminders-box birthday-box">
+      <h3>🎂 Aniversários de hoje (${birthdayClients.length})</h3>
+      ${birthdayClients.map(c => {
+        const wa = whatsappBirthdayUrl(c);
+        return `
+        <div class="reminder-row">
+          <div class="r-info">
+            <div class="r-name">🎉 ${escapeHtml(c.nome || 'Sem nome')}</div>
+            <div class="r-when">${c.tutorNome ? escapeHtml(c.tutorNome) : 'Sem contacto na ficha'}</div>
+          </div>
+          ${wa ? `<a class="icon-btn icon-btn-whatsapp" href="${wa}" target="_blank" title="Enviar parabéns por WhatsApp">${WHATSAPP_ICON_SVG}</a>` : ''}
+        </div>
+      `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderBirthdayPreview(){
+  const input = document.getElementById('birthday-template-input');
+  const previewEl = document.getElementById('birthday-preview-text');
+  if(!input || !previewEl) return;
+  const n = getCurrentNiche();
+  const exampleClient = { nome: n.id === 'grooming' ? 'Toby' : 'Mariana Silva', tutorNome: n.id === 'grooming' ? 'Joana Ferreira' : '', sexo: 'm' };
+  previewEl.textContent = fillBirthdayTemplate(input.value, exampleClient);
+}
+
+function saveBirthdayTemplateFromForm(){
+  const input = document.getElementById('birthday-template-input');
+  if(!input) return;
+  const text = input.value.trim();
+  if(!text){
+    alert('Escreve o texto da mensagem antes de guardar.');
+    return;
+  }
+  saveBirthdayTemplate(text);
+  alert('Mensagem guardada! Já é esta que vai ser usada nos avisos de aniversário.');
+  settingsView = 'menu';
+  renderSettingsModal();
+}
+
+function resetBirthdayTemplateFromForm(){
+  if(!confirm('Repor a mensagem predefinida? A tua personalização atual é substituída.')) return;
+  resetBirthdayTemplate();
+  settingsView = 'birthday';
+  renderSettingsModal();
+}
+
 function getNomeComArtigo(client, nome){
   const sexo = client && client.sexo;
   if(sexo === 'm') return `do ${nome}`;
@@ -4450,6 +4560,7 @@ async function renderAgendaBody(){
   renderGroomerLegend();
   renderRemindersPanel();
   renderInvoiceRemindersPanel();
+  renderBirthdayRemindersPanel();
   updateAgendaTabBadge();
 
   let rangeStart, rangeEnd;
@@ -5559,6 +5670,7 @@ const NICHE_OPTIONS = [
     placeholderIcon: '🐾',
     reminderEmoji: '🐾',
     defaultReminderTemplate: 'Olá {tutor}! 🐾 Só a confirmar a marcação {nome_artigo} para o dia {data} às {hora}. Fica combinado?',
+    defaultBirthdayTemplate: 'Olá {tutor}! 🎉🐾 Hoje é o aniversário {nome_artigo}! Desejamos-lhe um dia cheio de miminhos e petiscos. 🎂',
     fallbackClientName: 'o seu animal',
     unitLabel: 'animal',
     unitLabelCap: 'Animal',
@@ -5635,6 +5747,7 @@ const NICHE_OPTIONS = [
     placeholderIcon: '✨',
     reminderEmoji: '💅',
     defaultReminderTemplate: 'Olá {tutor}! 💅 Só a confirmar a tua marcação para o dia {data} às {hora}. Fica combinado?',
+    defaultBirthdayTemplate: 'Olá {tutor}! 🎉 Hoje é o teu aniversário! A equipa deseja-te um dia maravilhoso. 🎂💅',
     fallbackClientName: 'o(a) seu/sua cliente',
     unitLabel: 'cliente',
     unitLabelCap: 'Cliente',
@@ -5725,6 +5838,7 @@ const NICHE_OPTIONS = [
     placeholderIcon: '➕',
     reminderEmoji: '🩺',
     defaultReminderTemplate: 'Olá {tutor}! 🩺 Só a confirmar a visita agendada para o dia {data} às {hora}. Fica combinado?',
+    defaultBirthdayTemplate: 'Olá {tutor}! 🎉 Hoje é o seu aniversário! Desejamos-lhe um dia de saúde e bem-estar. 🎂',
     fallbackClientName: 'o(a) seu/sua utente',
     unitLabel: 'utente',
     unitLabelCap: 'Utente',
@@ -5807,6 +5921,7 @@ const NICHE_OPTIONS = [
     placeholderIcon: '👤',
     reminderEmoji: '📋',
     defaultReminderTemplate: 'Olá {tutor}! Só a confirmar a marcação para o dia {data} às {hora}. Fica combinado?',
+    defaultBirthdayTemplate: 'Olá {tutor}! 🎉 Hoje é o teu aniversário! Desejamos-te um dia maravilhoso. 🎂',
     fallbackClientName: 'o(a) seu/sua cliente',
     unitLabel: 'cliente',
     unitLabelCap: 'Cliente',
@@ -6124,6 +6239,41 @@ function renderSettingsModal(){
       </div>
     `;
     renderReminderPreview();
+  } else if(settingsView === 'birthday'){
+    const template = getBirthdayTemplate();
+    const isCustom = localStorage.getItem(nicheKey('mtb_birthday_template')) !== null;
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='menu';renderSettingsModal();">‹ Definições</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">🎂 Mensagem de aniversário</h3>
+        <div class="hint" style="margin:6px 0 12px;">
+          No dia do aniversário de um cliente (data de nascimento preenchida na ficha), aparece um aviso na Agenda com um botão para enviares logo esta mensagem por WhatsApp. Usa estas variáveis onde quiseres:
+        </div>
+        <div class="reminder-var-list">
+          <span class="reminder-var">{nome}</span>
+          <span class="reminder-var">{nome_artigo}</span>
+          <span class="reminder-var">{tutor}</span>
+        </div>
+        <div class="hint" style="margin:8px 0 14px;font-size:.78rem;">
+          <strong>{nome}</strong> — nome do animal/cliente na ficha · <strong>{nome_artigo}</strong> — nome com "do"/"da"/"de" à frente, já certo consoante o sexo definido na ficha · <strong>{tutor}</strong> — primeiro nome de quem cumprimentar.
+        </div>
+
+        <label>Texto da mensagem</label>
+        <textarea id="birthday-template-input" style="min-height:100px;" oninput="renderBirthdayPreview()">${escapeHtml(template)}</textarea>
+
+        <div class="reminder-preview-box">
+          <div class="reminder-preview-label">Pré-visualização</div>
+          <div id="birthday-preview-text"></div>
+        </div>
+
+        <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="saveBirthdayTemplateFromForm()">Guardar mensagem</button>
+        ${isCustom ? `<button class="btn-ghost" style="width:100%;margin-top:8px;border:1px solid var(--line);" onclick="resetBirthdayTemplateFromForm()">Repor mensagem predefinida</button>` : ''}
+      </div>
+    `;
+    renderBirthdayPreview();
   } else if(settingsView === 'customfields'){
     const n = getCurrentNiche();
     overlay.innerHTML = `
@@ -6331,6 +6481,14 @@ function renderSettingsModal(){
             <div class="settings-menu-info">
               <div class="settings-menu-title">Mensagem de confirmação</div>
               <div class="settings-menu-sub">Personaliza o texto enviado por WhatsApp</div>
+            </div>
+            <span class="settings-menu-arrow">›</span>
+          </div>
+          <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='birthday';renderSettingsModal();">
+            <div class="settings-menu-icon">🎂</div>
+            <div class="settings-menu-info">
+              <div class="settings-menu-title">Mensagem de aniversário</div>
+              <div class="settings-menu-sub">Personaliza os parabéns enviados por WhatsApp</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
