@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v112-morada-gps';
+const CACHE_NAME = 'fichas-tosquia-v116-tombstone-subitens';
 const FILES_TO_CACHE = [
   './',
   './index.html',

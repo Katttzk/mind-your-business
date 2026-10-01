@@ -241,7 +241,7 @@
   html.needs-niche-choice .tab-bar,
   html.needs-niche-choice .screen{display:none !important;}
   .onboarding-inner{max-width:420px;margin:auto;width:100%;text-align:center;}
-  .onboarding-inner .paw{font-size:2.6rem;display:block;margin-bottom:6px;}
+  .onboarding-mark{width:4.2rem;height:4.2rem;display:block;margin:0 auto 6px;}
   .onboarding-inner h1{
     color:#fff;font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;
     font-size:1.6rem;margin:0 0 8px;
@@ -289,6 +289,7 @@
     font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:.2px;line-height:1;
   }
   .logo-main .paw{font-size:.95rem;}
+  .brand-mark{width:1.55rem;height:1.55rem;flex-shrink:0;}
   .logo-sub{
     font-family:'Caveat', 'Segoe Script', 'Brush Script MT', cursive;
     font-size:1.05rem;font-weight:600;color:var(--mustard);
@@ -943,7 +944,17 @@
 
 <div id="niche-onboarding-screen">
   <div class="onboarding-inner">
-    <span class="paw">🐾💅</span>
+    <svg class="onboarding-mark" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polyline points="145,340 145,147 256,264 367,147 367,340" fill="none" stroke="#D4A24C" stroke-width="29" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="256" y1="264" x2="256" y2="432" stroke="#D4A24C" stroke-width="23" stroke-linecap="round"/>
+      <g fill="#D4A24C">
+        <ellipse cx="256" cy="207.8" rx="19.8" ry="15.3"/>
+        <circle cx="238" cy="188" r="7.2"/>
+        <circle cx="249.7" cy="179.9" r="7.2"/>
+        <circle cx="262.3" cy="179.9" r="7.2"/>
+        <circle cx="274" cy="188" r="7.2"/>
+      </g>
+    </svg>
     <h1>Bem-vindo(a)!</h1>
     <div class="sub">Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.</div>
     <div id="niche-onboarding-list"></div>
@@ -955,7 +966,20 @@
   <div class="wrap">
     <div class="header-top-row">
       <div class="app-logo" id="app-logo-default">
-        <div class="logo-main"><span class="paw" id="app-logo-emoji">🐾</span><span id="app-logo-title">Mind your Business</span></div>
+        <div class="logo-main">
+          <svg class="brand-mark" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <polyline points="145,340 145,147 256,264 367,147 367,340" fill="none" stroke="#D4A24C" stroke-width="29" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="256" y1="264" x2="256" y2="432" stroke="#D4A24C" stroke-width="23" stroke-linecap="round"/>
+            <g fill="#D4A24C">
+              <ellipse cx="256" cy="207.8" rx="19.8" ry="15.3"/>
+              <circle cx="238" cy="188" r="7.2"/>
+              <circle cx="249.7" cy="179.9" r="7.2"/>
+              <circle cx="262.3" cy="179.9" r="7.2"/>
+              <circle cx="274" cy="188" r="7.2"/>
+            </g>
+          </svg>
+          <span id="app-logo-title">Mind your Business</span>
+        </div>
         <div class="logo-sub" id="app-logo-tagline">for Groomers</div>
       </div>
       <div class="app-logo-custom" id="app-logo-custom" style="display:none;">
@@ -2835,6 +2859,7 @@ async function addHistoryEntry(){
   }
   if(!currentClient.history) currentClient.history = [];
   currentClient.history.push({
+    id: generateId('h'),
     fotos: [...pendingHistoryPhotos],
     nota,
     date: isoDate(new Date())
@@ -2870,7 +2895,7 @@ function renderGallery(){
     card.innerHTML = `
       <div class="history-card-head">
         <span class="history-date">${formatDate(item.date)}</span>
-        <button class="incident-del" onclick="removeHistoryPhoto(${item._idx})">Eliminar</button>
+        <button class="incident-del" onclick="removeHistoryPhoto(${item.id ? `'${item.id}'` : item._idx})">Eliminar</button>
       </div>
       ${fotosHtml}
       ${item.nota ? `<div class="history-note">${escapeHtml(item.nota)}</div>` : ''}
@@ -2879,8 +2904,16 @@ function renderGallery(){
   });
 }
 
-async function removeHistoryPhoto(idx){
-  currentClient.history.splice(idx,1);
+async function removeHistoryPhoto(idOrIdx){
+  const list = currentClient.history || [];
+  const match = list.find(h => h.id === idOrIdx);
+  if(match){
+    recordTombstone('historico_item', match.id);
+    currentClient.history = list.filter(h => h.id !== idOrIdx);
+  } else {
+    // Compatibilidade com registos antigos do histórico, criados antes de termos um id próprio
+    list.splice(idOrIdx, 1);
+  }
   await saveClient(true);
   renderGallery();
 }
@@ -2943,6 +2976,7 @@ async function saveIncidentEntry(){
 async function deleteIncidentEntry(id){
   if(!confirm('Eliminar este registo e as respetivas fotografias?')) return;
   currentClient.registos = currentClient.registos.filter(r => r.id !== id);
+  recordTombstone('registo_item', id);
   await saveClient(true);
   renderIncidentList();
 }
@@ -3118,6 +3152,7 @@ async function savePaymentEntry(){
 async function deletePaymentEntry(id){
   if(!confirm('Eliminar este registo de pagamento?')) return;
   currentClient.pagamentos = currentClient.pagamentos.filter(p => p.id !== id);
+  recordTombstone('pagamento_item', id);
   await saveClient(true);
   renderPayments();
 }
@@ -5681,6 +5716,7 @@ const NICHE_OPTIONS = [
   },
   {
     id: 'saude',
+    hidden: true, // Escondido temporariamente do ecrã de boas-vindas e das Definições para o lançamento público — o código fica todo pronto para reativar mais tarde, é só remover esta linha.
     label: '🩺 Saúde e Bem-Estar',
     appTitle: 'Mind your Business',
     appTagline: 'for Home Care',
@@ -5947,11 +5983,10 @@ function applyNicheUI(){
   const n = getCurrentNiche();
 
   // Logótipo/cabeçalho por defeito (só quando não há logótipo personalizado)
-  const emojiEl = document.getElementById('app-logo-emoji');
+  // O símbolo de marca (M + patinha) é agora fixo em todos os nichos — só o título/subtítulo variam.
   const titleEl = document.getElementById('app-logo-title');
   const taglineEl = document.getElementById('app-logo-tagline');
   const subtitleEl = document.getElementById('app-subtitle');
-  if(emojiEl) emojiEl.textContent = n.appEmoji;
   if(titleEl) titleEl.textContent = n.appTitle;
   if(taglineEl) taglineEl.textContent = n.appTagline;
   if(subtitleEl) subtitleEl.textContent = n.subtitle;
@@ -6142,7 +6177,7 @@ function renderSettingsModal(){
         <h3 style="margin-top:10px;">Tipo de negócio</h3>
         <div class="hint" style="margin:6px 0 12px;">Adapta os nomes dos campos da ficha ao teu tipo de negócio (ex: "Dados do animal" vs "Dados do cliente"). <strong>Cada nicho tem os seus próprios dados, totalmente separados</strong> — clientes, agenda, pagamentos, preços, tema e sincronização com o Drive. Nada é apagado ao mudares; se voltares a este nicho mais tarde, encontras tudo como estava.</div>
         <div class="theme-option-list">
-          ${NICHE_OPTIONS.map(n => `
+          ${NICHE_OPTIONS.filter(n => !n.hidden || n.id === current).map(n => `
             <div class="theme-card${n.id === current ? ' selected' : ''}" onclick="setNiche('${n.id}')">
               <div class="theme-name">${n.label}</div>
               ${n.id === current ? '<span class="theme-check">✓</span>' : ''}
@@ -6467,7 +6502,7 @@ async function handleImportFile(event){
 // ---------- Sincronização Google Drive (multi-dispositivo) ----------
 // PASSO OBRIGATÓRIO: substitui pelo Client ID OAuth criado na Google Cloud Console
 const GOOGLE_CLIENT_ID = '695642606391-adoe63hlatn4tgr35v0kce3phf8in0bg.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 function DRIVE_FOLDER_NAME(){ return nicheKey('MindYourBusiness-Sync'); }
 const SYNC_INTERVAL_MS = 5000;
@@ -6948,6 +6983,24 @@ async function downloadDriveFile(fileId){
   return await driveFetchJson(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
 }
 
+// Remove de uma ficha (depois de resolvida a fusão) qualquer pagamento, ocorrência ou
+// registo de histórico que já tenha sido eliminado em qualquer aparelho — mesmo que a
+// versão da ficha "vencedora" (mais recente) ainda os tivesse, por ter sido guardada
+// a partir de uma cópia desatualizada noutro aparelho (ex: editar uma marcação sem saber
+// que, entretanto, um pagamento tinha sido eliminado noutro telemóvel).
+function pruneTombstonedSubItems(record, tombstoneMap){
+  if(Array.isArray(record.pagamentos)){
+    record.pagamentos = record.pagamentos.filter(p => !tombstoneMap['pagamento_item::' + p.id]);
+  }
+  if(Array.isArray(record.registos)){
+    record.registos = record.registos.filter(r => !tombstoneMap['registo_item::' + r.id]);
+  }
+  if(Array.isArray(record.history)){
+    record.history = record.history.filter(h => !h.id || !tombstoneMap['historico_item::' + h.id]);
+  }
+  return record;
+}
+
 async function mergeAndApplyRemoteData(){
   const remoteFiles = await listRemoteDeviceFiles();
   if(remoteFiles.length === 0) return false;
@@ -6998,6 +7051,7 @@ async function mergeAndApplyRemoteData(){
       } else if(!localIsSame){
         if(s.name === STORE){
           const hydrated = await hydrateClientImages(record);
+          pruneTombstonedSubItems(hydrated, tombstoneMap);
           await s.putRaw(hydrated);
         } else {
           await s.putRaw(record);
@@ -7162,7 +7216,7 @@ function renderNicheOnboardingList(){
     saude: 'Enfermagem ao domicílio, osteopatia e outros cuidados de saúde a utentes.',
     outros: 'Qualquer outro negócio de serviços — os nomes dos campos são totalmente personalizáveis.'
   };
-  listEl.innerHTML = NICHE_OPTIONS.map(n => `
+  listEl.innerHTML = NICHE_OPTIONS.filter(n => !n.hidden).map(n => `
     <button class="niche-choice-card" onclick="chooseNicheOnboarding('${n.id}')">
       <span class="emoji">${n.appEmoji}</span>
       <span class="info">
