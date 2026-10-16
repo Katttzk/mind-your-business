@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v124-moeda';
+const CACHE_NAME = 'fichas-tosquia-v126-agenda-datas-en-es';
 const FILES_TO_CACHE = [
   './',
   './index.html',

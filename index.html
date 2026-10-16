@@ -1048,7 +1048,7 @@
     <div class="nav-label" id="agenda-nav-label"></div>
     <button class="nav-arrow" onclick="agendaNav(1)">›</button>
   </div>
-  <div class="agenda-today-row"><button onclick="agendaGoToday()">Ir para hoje</button></div>
+  <div class="agenda-today-row"><button id="agenda-goto-today-btn" onclick="agendaGoToday()">Ir para hoje</button></div>
   <div class="groomer-legend" id="groomer-legend"></div>
   <div id="agenda-body"></div>
 </div>
@@ -2187,7 +2187,7 @@ async function renderExpenses(){
     return ey === y && (em - 1) === m;
   });
 
-  document.getElementById('expense-nav-label').textContent = capitalize(expenseDate.toLocaleDateString('pt-PT', { month:'long', year:'numeric' }));
+  document.getElementById('expense-nav-label').textContent = capitalize(expenseDate.toLocaleDateString(getDateLocale(), { month:'long', year:'numeric' }));
 
   const total = monthExpenses.reduce((sum, e) => sum + (Number(e.valor) || 0), 0);
   const totalPago = monthExpenses.filter(e => e.pago).reduce((sum, e) => sum + (Number(e.valor) || 0), 0);
@@ -2263,7 +2263,7 @@ async function renderOverview(){
   const TARGET_MARGIN = 0.25;
   const suggestedMinPrice = costPerService != null ? costPerService / (1 - TARGET_MARGIN) : null;
 
-  document.getElementById('overview-nav-label').textContent = capitalize(overviewDate.toLocaleDateString('pt-PT', { month:'long', year:'numeric' }));
+  document.getElementById('overview-nav-label').textContent = capitalize(overviewDate.toLocaleDateString(getDateLocale(), { month:'long', year:'numeric' }));
 
   const isProfit = profit >= 0;
   const boxBg = isProfit ? '#E3F5E9' : '#FBEAE8';
@@ -2466,14 +2466,14 @@ async function renderRevenue(resetExpansion){
   if(revenueView === 'day'){
     const iso = isoDate(revenueDate);
     filtered = payments.filter(p => p.date === iso);
-    label = capitalize(revenueDate.toLocaleDateString('pt-PT', { weekday:'long', day:'numeric', month:'long' }));
+    label = capitalize(revenueDate.toLocaleDateString(getDateLocale(), { weekday:'long', day:'numeric', month:'long' }));
     totalLabel = 'Total do dia';
   } else if(revenueView === 'week'){
     const start = startOfWeek(revenueDate);
     const end = addDays(start, 6);
     const startIso = isoDate(start), endIso = isoDate(end);
     filtered = payments.filter(p => p.date >= startIso && p.date <= endIso);
-    label = `${start.toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} – ${end.toLocaleDateString('pt-PT',{day:'numeric',month:'short',year:'numeric'})}`;
+    label = `${start.toLocaleDateString(getDateLocale(),{day:'numeric',month:'short'})} – ${end.toLocaleDateString(getDateLocale(),{day:'numeric',month:'short',year:'numeric'})}`;
     totalLabel = 'Total da semana';
   } else {
     const y = revenueDate.getFullYear(), m = revenueDate.getMonth();
@@ -2481,7 +2481,7 @@ async function renderRevenue(resetExpansion){
       const [py, pm] = p.date.split('-').map(Number);
       return py === y && (pm - 1) === m;
     });
-    label = capitalize(revenueDate.toLocaleDateString('pt-PT', { month:'long', year:'numeric' }));
+    label = capitalize(revenueDate.toLocaleDateString(getDateLocale(), { month:'long', year:'numeric' }));
     totalLabel = 'Total do mês';
   }
 
@@ -4130,7 +4130,7 @@ async function renderApptPickerModal(){
   const items = await getAllAppointments();
 
   if(apptPickerStep === 'calendar'){
-    const label = capitalize(apptPickerRefDate.toLocaleDateString('pt-PT', { month:'long', year:'numeric' }));
+    const label = capitalize(apptPickerRefDate.toLocaleDateString(getDateLocale(), { month:'long', year:'numeric' }));
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -4145,7 +4145,7 @@ async function renderApptPickerModal(){
     `;
   } else {
     const dateObj = new Date(apptPickerSelectedDate + 'T00:00:00');
-    const dayLabel = capitalize(dateObj.toLocaleDateString('pt-PT', { weekday:'long', day:'numeric', month:'long' }));
+    const dayLabel = capitalize(dateObj.toLocaleDateString(getDateLocale(), { weekday:'long', day:'numeric', month:'long' }));
     const dayItems = items.filter(it => it.date === apptPickerSelectedDate).sort((a,b)=> a.time.localeCompare(b.time));
 
     let occupiedHtml = '';
@@ -4434,7 +4434,7 @@ async function renderRemindersPanel(){
 
   panelEl.innerHTML = `
     <div class="reminders-box">
-      <h3>🔔 Lembretes prontos a enviar (${due.length})</h3>
+      <h3>${t('remindersPanelTitle','🔔 Lembretes prontos a enviar')} (${due.length})</h3>
       ${due.map(it => {
         const waUrl = whatsappReminderUrl(it.client, it);
         return `
@@ -4446,7 +4446,7 @@ async function renderRemindersPanel(){
             ${waUrl
               ? `<a class="icon-btn icon-btn-whatsapp" href="${waUrl}" target="_blank" onclick="markReminderSent('${it.client.id}', ${it.idx})" title="Enviar lembrete">${WHATSAPP_ICON_SVG}</a>`
               : `<span class="hint" style="margin:0;">Sem contacto</span>`}
-            <button class="reminder-sent-btn" onclick="markReminderSent('${it.client.id}', ${it.idx})" title="Marcar como já enviado">Já enviei</button>
+            <button class="reminder-sent-btn" onclick="markReminderSent('${it.client.id}', ${it.idx})" title="Marcar como já enviado">${t('reminderSentBtn','Já enviei')}</button>
           </div>
         `;
       }).join('')}
@@ -4494,15 +4494,15 @@ async function renderInvoiceRemindersPanel(){
 
   panelEl.innerHTML = `
     <div class="reminders-box invoice-box">
-      <h3>🧾 Comprovativos por emitir (${pending.length})</h3>
+      <h3>${t('invoicePanelTitle','🧾 Comprovativos por emitir')} (${pending.length})</h3>
       ${pending.map(item => `
         <div class="reminder-row">
           <div class="r-info">
             <div class="r-name">${escapeHtml(item.client.nome || 'Sem nome')} · ${formatCurrency(item.payment.valor)}</div>
-            <div class="r-when">${formatDate(item.payment.date)}${item.client.tutorNif ? ' · NIF: ' + escapeHtml(item.client.tutorNif) : ' · Sem NIF na ficha'}</div>
+            <div class="r-when">${formatDate(item.payment.date)}${item.client.tutorNif ? ' · NIF: ' + escapeHtml(item.client.tutorNif) : ' · ' + t('noNifOnFile','Sem NIF na ficha')}</div>
           </div>
           ${item.client.tutorNif ? `<button class="icon-btn icon-btn-copy" onclick="copyNifToClipboard('${item.client.tutorNif}', this)" title="Copiar NIF">📋</button>` : ''}
-          <button class="reminder-sent-btn" onclick="markInvoiceIssued('${item.client.id}', ${item.idx})" title="Marcar como emitido">✓ Concluído</button>
+          <button class="reminder-sent-btn" onclick="markInvoiceIssued('${item.client.id}', ${item.idx})" title="Marcar como emitido">${t('invoiceDoneBtn','✓ Concluído')}</button>
         </div>
       `).join('')}
     </div>
@@ -4615,19 +4615,19 @@ async function renderAgendaBody(){
   const allItems = items.concat(gcalItems);
 
   if(agendaView === 'day'){
-    label.textContent = capitalize(agendaDate.toLocaleDateString('pt-PT', { weekday:'long', day:'numeric', month:'long' }));
+    label.textContent = capitalize(agendaDate.toLocaleDateString(getDateLocale(), { weekday:'long', day:'numeric', month:'long' }));
     body.innerHTML = await renderDayTimelineHtml(allItems, agendaDate);
   } else if(agendaView === 'week'){
     const start = startOfWeek(agendaDate);
     const end = addDays(start, 6);
     const sameMonth = start.getMonth() === end.getMonth();
-    const startLbl = start.toLocaleDateString('pt-PT', { day:'numeric', month: sameMonth ? undefined : 'short' });
-    const endLbl = end.toLocaleDateString('pt-PT', { day:'numeric', month:'short', year:'numeric' });
+    const startLbl = start.toLocaleDateString(getDateLocale(), { day:'numeric', month: sameMonth ? undefined : 'short' });
+    const endLbl = end.toLocaleDateString(getDateLocale(), { day:'numeric', month:'short', year:'numeric' });
     label.textContent = `${startLbl} – ${endLbl}`;
     body.innerHTML = await renderWeekHtml(allItems, start);
     attachWeekHandlers();
   } else {
-    label.textContent = capitalize(agendaDate.toLocaleDateString('pt-PT', { month:'long', year:'numeric' }));
+    label.textContent = capitalize(agendaDate.toLocaleDateString(getDateLocale(), { month:'long', year:'numeric' }));
     body.innerHTML = await renderMonthHtml(allItems, agendaDate);
     attachMonthHandlers();
   }
@@ -4803,7 +4803,7 @@ async function renderWeekHtml(items, weekStart){
     if(iso === selectedIso) classes.push('selected');
     stripHtml += `
       <div class="${classes.join(' ')}" data-iso="${iso}">
-        <div class="wd-label">${d.toLocaleDateString('pt-PT',{weekday:'short'}).replace('.','')}</div>
+        <div class="wd-label">${d.toLocaleDateString(getDateLocale(),{weekday:'short'}).replace('.','')}</div>
         <div class="wd-num">${d.getDate()}</div>
         <div class="wd-dot"></div>
       </div>
@@ -4886,7 +4886,7 @@ function attachMonthHandlers(){
 async function renderSelectedDayListHtml(items, date){
   const iso = isoDate(date);
   const dayItems = items.filter(i => i.date === iso).sort((a,b)=> a.time.localeCompare(b.time));
-  const title = capitalize(date.toLocaleDateString('pt-PT', { weekday:'long', day:'numeric', month:'long' }));
+  const title = capitalize(date.toLocaleDateString(getDateLocale(), { weekday:'long', day:'numeric', month:'long' }));
 
   let rows = '';
   if(dayItems.length === 0){
@@ -4997,7 +4997,7 @@ async function openQuickAddFromAgenda(iso, presetTime){
   quickAddClients = await getAllClients();
   quickAddSelectedClientId = '';
   const dateObj = new Date(iso + 'T00:00:00');
-  const dayLabel = capitalize(dateObj.toLocaleDateString('pt-PT', { weekday:'long', day:'numeric', month:'long' }));
+  const dayLabel = capitalize(dateObj.toLocaleDateString(getDateLocale(), { weekday:'long', day:'numeric', month:'long' }));
   const startTime = presetTime || '10:00';
   const endTime = addMinutesToTime(startTime, 60);
 
@@ -5749,7 +5749,10 @@ const TRANSLATIONS = {
     menuBackup: 'Backup', menuBackupSub: 'Export / import data between devices',
     menuDriveSync: 'Google Drive sync', menuLanguage: '🌐 Language',
     onbWelcome: 'Welcome!', onbSub: 'What type of business is this app for? This adapts fields, examples and vocabulary to your line of work.',
-    onbFootnote: "Don't worry — you can always change this later in ⚙️ Settings → Business type."
+    onbFootnote: "Don't worry — you can always change this later in ⚙️ Settings → Business type.",
+    agendaDay: 'Day', agendaWeek: 'Week', agendaMonth: 'Month', agendaGoToday: 'Go to today',
+    remindersPanelTitle: '🔔 Reminders ready to send', reminderSentBtn: 'Sent',
+    invoicePanelTitle: '🧾 Receipts to issue', invoiceDoneBtn: '✓ Done', noNifOnFile: 'No tax ID on file'
   },
   es: {
     tabAgenda: 'Agenda', tabClientes: 'Clientes', tabNegocio: 'Negocio', tabPrecos: 'Precios', tabStock: 'Stock',
@@ -5761,7 +5764,10 @@ const TRANSLATIONS = {
     menuBackup: 'Copia de seguridad', menuBackupSub: 'Exportar / importar datos entre dispositivos',
     menuDriveSync: 'Sincronización con Google Drive', menuLanguage: '🌐 Idioma',
     onbWelcome: '¡Bienvenido(a)!', onbSub: '¿Para qué tipo de negocio es esta aplicación? Esto adapta los campos, ejemplos y vocabulario a tu actividad.',
-    onbFootnote: 'No te preocupes — siempre puedes cambiar esto más tarde en ⚙️ Ajustes → Tipo de negocio.'
+    onbFootnote: 'No te preocupes — siempre puedes cambiar esto más tarde en ⚙️ Ajustes → Tipo de negocio.',
+    agendaDay: 'Día', agendaWeek: 'Semana', agendaMonth: 'Mes', agendaGoToday: 'Ir a hoy',
+    remindersPanelTitle: '🔔 Recordatorios listos para enviar', reminderSentBtn: 'Enviado',
+    invoicePanelTitle: '🧾 Comprobantes por emitir', invoiceDoneBtn: '✓ Hecho', noNifOnFile: 'Sin NIF en la ficha'
   },
   de: {
     tabAgenda: 'Kalender', tabClientes: 'Kunden', tabNegocio: 'Geschäft', tabPrecos: 'Preise', tabStock: 'Lager',
@@ -5805,6 +5811,15 @@ function getCurrentLang(){
   return localStorage.getItem(LANG_KEY) || 'pt';
 }
 
+// Locale usado para escrever datas por extenso (nomes dos dias/meses) — segue a
+// língua escolhida, não fica preso ao português como antes.
+function getDateLocale(){
+  const lang = getCurrentLang();
+  if(lang === 'en') return 'en-US';
+  if(lang === 'es') return 'es-ES';
+  return 'pt-PT';
+}
+
 function chooseRegionFromSettings(regionCode){
   const region = REGION_OPTIONS.find(r => r.code === regionCode);
   if(!region) return;
@@ -5839,6 +5854,10 @@ function applyLanguage(){
   setText('tab-business', t('tabNegocio', 'Negócio'));
   setText('tab-pricing', t('tabPrecos', 'Preços'));
   setText('tab-stock', t('tabStock', 'Stock'));
+  setText('subtab-day', t('agendaDay', 'Dia'));
+  setText('subtab-week', t('agendaWeek', 'Semana'));
+  setText('subtab-month', t('agendaMonth', 'Mês'));
+  setText('agenda-goto-today-btn', t('agendaGoToday', 'Ir para hoje'));
   const subtitleEl = document.getElementById('app-subtitle');
   if(subtitleEl) subtitleEl.textContent = t('slogan', getCurrentNiche().subtitle);
 }
@@ -6135,7 +6154,125 @@ const NICHE_OPTIONS = [
       'Confirmo que não tenho conhecimento de alergias (incluindo a produtos capilares, tintas ou colas de pestanas), condições de pele, couro cabeludo ou de saúde relevantes que não tenha comunicado à equipa, e que me encontro apto/a para o serviço.',
       'Autorizo a recolha e utilização de dados e fotografias (antes/depois) para fins de registo interno, histórico de tratamentos e comunicação relacionada com o serviço.',
       'Assumo a responsabilidade por reações a produtos ou tratamentos resultantes de informação de saúde não comunicada, isentando o estabelecimento de responsabilidade nesses casos.'
-    ]
+    ],
+    i18n: {
+      en: {
+        label: '💅 Aesthetics',
+        defaultReminderTemplate: 'Hi {tutor}! 💅 Just confirming your appointment for {data} at {hora}. Does that work?',
+        defaultBirthdayTemplate: 'Hi {tutor}! 🎉 Today is your birthday! The team wishes you a wonderful day. 🎂💅',
+        fallbackClientName: 'your client',
+        unitLabel: 'client', unitLabelCap: 'Client',
+        subtitle: 'Take care of your business.',
+        sectionAnimal: 'Client details', labelNome: 'Name',
+        nomePlaceholder: 'E.g. Mariana Silva', businessNamePlaceholder: 'E.g. Glow Beauty Studio',
+        labelComportamento: 'Preferences / Notes', labelPedidos: 'Usual requests', labelGroomer: 'Professional',
+        comportamentoPlaceholder: 'E.g. sensitive skin, allergic to hair dye, sensitive to lash glue, prefers a calm environment...',
+        pedidosPlaceholder: 'E.g. gel nails, layered haircut, Russian volume lashes, brow threading...',
+        notaExamplePlaceholder: 'E.g. manicure + gel polish',
+        historyNotaPlaceholder: 'E.g. 6.0 color, Russian volume lash technique, product X applied, good result, no reaction...',
+        incidentsHint: 'Use this section to document things like allergic reactions, irritation or sensitivity — a text note, photos, or both, with an automatic date. Kept as evidence in case of a complaint.',
+        incidentNotaPlaceholder: 'E.g. Skin/scalp redness after product X, before any procedure.',
+        pricingSearchPlaceholder: '🔍 Search service, hair, skin or lashes...',
+        sectionTutor: 'Contact',
+        avisoCheckboxLabel: '⚠️ This client needs special attention',
+        avisoTextoPlaceholder: 'E.g. allergic to hair dye, sensitive to lash glue, very sensitive skin...',
+        idadePlaceholder: 'E.g. 35 years',
+        labelSexo: 'Sex', sexoLabels: ['Male', 'Female', 'Other'],
+        expenseDescPlaceholder: 'E.g. Manicure supplies, Rent, Electricity...',
+        shoppingPlaceholder: 'E.g. Gel polish, cotton pads, acetone...',
+        hintAviso: 'Tick this if relevant (e.g. allergies, sensitive skin) — this client\'s file will appear highlighted in yellow in the Clients list, with this note visible, so you can spot it right away.',
+        searchPlaceholder: 'Search by name or phone...',
+        searchAnimalPlaceholder: 'Search by client name...',
+        searchAnimalHint: 'Type the client\'s name to search.',
+        quickAddLabel: 'Client', quickAddButtonLabel: '+ Book a client on this day',
+        associarLabel: 'Link to which client?',
+        alertNomeVazio: 'Enter at least the client\'s name before saving.',
+        alertEscolheLista: 'Choose a client from the list.',
+        alertEscolheOuCria: 'Choose a client from the list, or create a new one.',
+        fallbackDeleteWord: 'this client',
+        faltasClearConfirm: 'Clear this client\'s no-show record? The card will no longer appear highlighted in red in the Clients list.',
+        noShowConfirm: 'Mark this appointment as "Client did not show up"? This is recorded on the client\'s file, which will appear highlighted in red in the Clients list.',
+        historicoTitle: 'Treatment history',
+        historicoHint: 'Record the details of each treatment — products used, technique, result, etc. — with or without a photo (e.g. before/after).',
+        anamneseHint: 'Automatically generates a consent form with the client\'s details, health declaration, authorization to use data/photos and liability — ready to be signed on a phone or tablet.',
+        photoSyncHint: '<strong>Photos</strong> (client photo, treatment history, incidents, signatures) also sync',
+        perUnitTitle: 'Average cost per client',
+        perUnitHint: 'Based on the average of the last few months with data — helps you understand, in a stable way, how much each client really costs and whether your current prices cover it.',
+        noPaymentsHint: 'No payments recorded this month yet. Record the payment for each service on the client\'s file to start seeing your business\'s financial health here.',
+        pricingCategories: {
+          servicos: ['Manicure', 'Pedicure', 'Gel polish', 'Nail extensions', 'Eyebrow design', 'Eyebrow henna', 'Micropigmentation', 'Waxing', 'Skin cleansing', 'Facial treatment', 'Massage', 'Makeup', 'Haircut', 'Coloring', 'Highlights / Balayage', 'Blow-dry / Straightening', 'Hair treatment', 'Lash extensions', 'Lash lift', 'Other'],
+          dimensaoLabel: 'Duration',
+          dimensoes: ['Any duration', 'Up to 30 min', '30–60 min', '1–2 hours', '+2 hours'],
+          tipoLabel: 'Area / Type',
+          tipos: ['Any type', 'Normal skin', 'Sensitive skin', 'Oily skin', 'Dry skin', 'Face area', 'Body area', 'Straight hair', 'Wavy hair', 'Curly hair', 'Coily hair', 'Lashes'],
+          racaLabel: 'Note (optional)',
+          racaPlaceholder: 'E.g. specific product included — leave blank if not applicable'
+        },
+        defaultDeclarations: [
+          'I confirm that I am not aware of any allergies (including to hair products, dyes or lash glue), skin, scalp or health conditions relevant to this service that I have not disclosed to the team, and that I am fit for the service.',
+          'I authorize the collection and use of data and photographs (before/after) for internal record-keeping, treatment history and communication related to the service.',
+          'I take responsibility for reactions to products or treatments resulting from undisclosed health information, releasing the establishment from liability in such cases.'
+        ]
+      },
+      es: {
+        label: '💅 Estética',
+        defaultReminderTemplate: '¡Hola {tutor}! 💅 Solo para confirmar tu cita para el día {data} a las {hora}. ¿Sigue en pie?',
+        defaultBirthdayTemplate: '¡Hola {tutor}! 🎉 ¡Hoy es tu cumpleaños! El equipo te desea un día maravilloso. 🎂💅',
+        fallbackClientName: 'tu cliente',
+        unitLabel: 'cliente', unitLabelCap: 'Cliente',
+        subtitle: 'Cuida de tu negocio.',
+        sectionAnimal: 'Datos del cliente', labelNome: 'Nombre',
+        nomePlaceholder: 'Ej: Mariana Silva', businessNamePlaceholder: 'Ej: Glow Beauty Studio',
+        labelComportamento: 'Preferencias / Notas', labelPedidos: 'Pedidos habituales', labelGroomer: 'Profesional',
+        comportamentoPlaceholder: 'Ej: piel sensible, alergia a tinte capilar, sensibilidad al pegamento de pestañas, prefiere ambiente tranquilo...',
+        pedidosPlaceholder: 'Ej: gel en las uñas, corte en capas, volumen ruso en las pestañas, cejas al hilo...',
+        notaExamplePlaceholder: 'Ej: manicura + esmalte semipermanente',
+        historyNotaPlaceholder: 'Ej: coloración 6.0, técnica de volumen ruso en pestañas, producto X aplicado, buen resultado, sin reacción...',
+        incidentsHint: 'Usa esta sección para documentar situaciones como reacción alérgica, irritación o sensibilidad — nota de texto, fotos, o ambos, con fecha automática. Queda guardado como prueba en caso de reclamación.',
+        incidentNotaPlaceholder: 'Ej: Piel/cuero cabelludo con enrojecimiento tras el producto X, antes de cualquier procedimiento.',
+        pricingSearchPlaceholder: '🔍 Buscar servicio, cabello, piel o pestañas...',
+        sectionTutor: 'Contacto',
+        avisoCheckboxLabel: '⚠️ Este cliente necesita atención especial',
+        avisoTextoPlaceholder: 'Ej: alergia a tinte capilar, sensibilidad al pegamento de pestañas, piel muy sensible...',
+        idadePlaceholder: 'Ej: 35 años',
+        labelSexo: 'Sexo', sexoLabels: ['Masculino', 'Femenino', 'Otro'],
+        expenseDescPlaceholder: 'Ej: Productos de manicura, Alquiler, Electricidad...',
+        shoppingPlaceholder: 'Ej: Esmalte semipermanente, algodón, acetona...',
+        hintAviso: 'Marca esto si es relevante (ej: alergias, piel sensible) — la ficha de este cliente aparecerá destacada en amarillo en la lista de Clientes, con esta nota visible, para identificarla enseguida.',
+        searchPlaceholder: 'Buscar por nombre o teléfono...',
+        searchAnimalPlaceholder: 'Buscar por nombre del cliente...',
+        searchAnimalHint: 'Escribe el nombre del cliente para buscar.',
+        quickAddLabel: 'Cliente', quickAddButtonLabel: '+ Reservar cliente este día',
+        associarLabel: '¿Asociar a qué cliente?',
+        alertNomeVazio: 'Indica al menos el nombre del cliente antes de guardar.',
+        alertEscolheLista: 'Elige un cliente de la lista.',
+        alertEscolheOuCria: 'Elige un cliente de la lista, o crea uno nuevo.',
+        fallbackDeleteWord: 'este cliente',
+        faltasClearConfirm: '¿Borrar el registro de ausencias de este cliente? La tarjeta dejará de aparecer destacada en rojo en la lista de Clientes.',
+        noShowConfirm: '¿Marcar esta cita como "El cliente no se presentó"? Esto queda registrado en la ficha del cliente, que aparecerá destacada en rojo en la lista de Clientes.',
+        historicoTitle: 'Historial de tratamientos',
+        historicoHint: 'Registra los detalles de cada tratamiento — productos usados, técnica, resultado, etc. — con o sin fotografía (ej: antes/después).',
+        anamneseHint: 'Genera automáticamente una ficha de consentimiento con los datos del cliente, declaración de salud, autorización de uso de datos/fotografías y responsabilidad — lista para firmar en el móvil o tablet.',
+        photoSyncHint: 'Las <strong>fotografías</strong> (foto del cliente, historial de tratamientos, incidencias, firmas) también se sincronizan',
+        perUnitTitle: 'Coste medio por cliente',
+        perUnitHint: 'Basado en la media de los últimos meses con datos — ayuda a entender, de forma estable, cuánto cuesta realmente cada cliente y si tus precios actuales lo cubren.',
+        noPaymentsHint: 'Todavía no hay pagos registrados este mes. Registra el pago de cada servicio en la ficha del cliente para empezar a ver aquí la salud financiera de tu negocio.',
+        pricingCategories: {
+          servicos: ['Manicura', 'Pedicura', 'Esmalte semipermanente', 'Extensión de uñas', 'Diseño de cejas', 'Henna de cejas', 'Micropigmentación', 'Depilación', 'Limpieza facial', 'Tratamiento facial', 'Masaje', 'Maquillaje', 'Corte de pelo', 'Coloración', 'Mechas / Balayage', 'Secado / Alisado', 'Tratamiento capilar', 'Extensión de pestañas', 'Lifting de pestañas', 'Otro'],
+          dimensaoLabel: 'Duración',
+          dimensoes: ['Cualquier duración', 'Hasta 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+          tipoLabel: 'Zona / Tipo',
+          tipos: ['Cualquier tipo', 'Piel normal', 'Piel sensible', 'Piel grasa', 'Piel seca', 'Zona del rostro', 'Zona del cuerpo', 'Cabello liso', 'Cabello ondulado', 'Cabello rizado', 'Cabello afro', 'Pestañas'],
+          racaLabel: 'Nota (opcional)',
+          racaPlaceholder: 'Ej: incluye producto específico — deja vacío si no aplica'
+        },
+        defaultDeclarations: [
+          'Confirmo que no tengo conocimiento de alergias (incluyendo a productos capilares, tintes o pegamento de pestañas), condiciones de piel, cuero cabelludo o de salud relevantes que no haya comunicado al equipo, y que me encuentro apto/a para el servicio.',
+          'Autorizo la recogida y el uso de datos y fotografías (antes/después) para fines de registro interno, historial de tratamientos y comunicación relacionada con el servicio.',
+          'Asumo la responsabilidad por reacciones a productos o tratamientos derivadas de información de salud no comunicada, eximiendo al establecimiento de responsabilidad en esos casos.'
+        ]
+      }
+    }
   },
   {
     id: 'saude',
@@ -6218,7 +6355,127 @@ const NICHE_OPTIONS = [
       'Autorizo a prestação dos cuidados de saúde propostos, tendo sido informado(a) sobre a sua natureza e finalidade.',
       'Autorizo a recolha e utilização de dados clínicos e fotografias (ex: evolução de feridas) para fins de registo interno, histórico de cuidados e comunicação relacionada com o serviço.',
       'Confirmo que a informação de saúde e medicação habitual fornecida é verdadeira e completa, tanto quanto é do meu conhecimento.'
-    ]
+    ],
+    i18n: {
+      en: {
+        label: '🩺 Health & Wellness',
+        defaultReminderTemplate: 'Hi {tutor}! 🩺 Just confirming the visit scheduled for {data} at {hora}. Does that work?',
+        defaultBirthdayTemplate: 'Hi {tutor}! 🎉 Today is your birthday! We wish you a day of health and wellbeing. 🎂',
+        fallbackClientName: 'your patient',
+        unitLabel: 'patient', unitLabelCap: 'Patient',
+        subtitle: 'Take care of your business.',
+        sectionAnimal: 'Patient details', labelNome: 'Name',
+        nomePlaceholder: 'E.g. John Smith', businessNamePlaceholder: 'E.g. Home Care Services Ltd',
+        labelPedidos: 'Active issues / Reason for home visit', labelGroomer: 'Professional',
+        pedidosPlaceholder: 'E.g. chronic foot wound, post-surgical follow-up, blood pressure check...',
+        labelComportamento: 'Personal history',
+        comportamentoPlaceholder: 'E.g. type 2 diabetes, hypertension, stroke in 2022, reduced mobility...',
+        notaExamplePlaceholder: 'E.g. wound dressing + blood pressure check',
+        historyNotaPlaceholder: 'E.g. wound in granulation phase, no signs of infection, dressing changed, favorable progress...',
+        incidentsHint: 'Use this section to document relevant clinical situations — medication reaction, fall, wound worsening, etc. — a text note, photos, or both, with an automatic date. Kept as a clinical record.',
+        incidentNotaPlaceholder: 'E.g. Wound showing signs of infection (redness, local warmth), referred for medical evaluation.',
+        pricingSearchPlaceholder: '🔍 Search service or visit type...',
+        sectionTutor: 'Contact',
+        avisoCheckboxLabel: '⚠️ This patient needs special attention',
+        avisoTextoPlaceholder: 'E.g. fall risk, agitation, mobility difficulty, social isolation...',
+        idadePlaceholder: 'E.g. 78 years',
+        labelSexo: 'Sex', sexoLabels: ['Male', 'Female', 'Other'],
+        expenseDescPlaceholder: 'E.g. Dressing supplies, Gloves, Fuel...',
+        shoppingPlaceholder: 'E.g. Gauze, saline solution, gloves...',
+        hintAviso: 'Tick this if relevant (e.g. fall risk, isolation) — this patient\'s file will appear highlighted in yellow in the Clients list, with this note visible, so you can spot it right away.',
+        searchPlaceholder: 'Search by name or phone...',
+        searchAnimalPlaceholder: 'Search by patient name...',
+        searchAnimalHint: 'Type the patient\'s name to search.',
+        quickAddLabel: 'Patient', quickAddButtonLabel: '+ Book a visit on this day',
+        associarLabel: 'Link to which patient?',
+        alertNomeVazio: 'Enter at least the patient\'s name before saving.',
+        alertEscolheLista: 'Choose a patient from the list.',
+        alertEscolheOuCria: 'Choose a patient from the list, or create a new one.',
+        fallbackDeleteWord: 'this patient',
+        faltasClearConfirm: 'Clear this patient\'s no-show record? The card will no longer appear highlighted in red in the Clients list.',
+        noShowConfirm: 'Mark this visit as "Patient was not present"? This is recorded on the patient\'s file, which will appear highlighted in red in the Clients list.',
+        historicoTitle: 'Visit history',
+        historicoHint: 'Record the details of each visit — assessment, care provided, progress, etc. — with or without a photo (e.g. wound progress over time).',
+        anamneseHint: 'Automatically generates an informed consent form with the patient\'s details, authorization to collect data/photos and liability — ready to be signed on a phone or tablet.',
+        photoSyncHint: '<strong>Photos</strong> (visit history, incidents, signatures) also sync',
+        perUnitTitle: 'Average cost per patient',
+        perUnitHint: 'Based on the average of the last few months with data — helps you understand, in a stable way, how much each patient really costs and whether your current prices cover it.',
+        noPaymentsHint: 'No payments recorded this month yet. Record the payment for each visit on the patient\'s file to start seeing your business\'s financial health here.',
+        pricingCategories: {
+          servicos: ['Home nursing visit', 'Wound care / Dressing', 'Medication administration', 'Blood draw', 'Vital signs assessment', 'Osteopathy consultation', 'Physiotherapy session', 'General health assessment', 'Other'],
+          dimensaoLabel: 'Duration',
+          dimensoes: ['Any duration', 'Up to 30 min', '30–60 min', '1–2 hours', '+2 hours'],
+          tipoLabel: 'Visit type',
+          tipos: ['Any type', 'Home visit', 'Clinic', 'Urgent', 'Routine / Follow-up'],
+          racaLabel: 'Note (optional)',
+          racaPlaceholder: 'E.g. requires specific equipment — leave blank if not applicable'
+        },
+        defaultDeclarations: [
+          'I authorize the provision of the proposed health care, having been informed about its nature and purpose.',
+          'I authorize the collection and use of clinical data and photographs (e.g. wound progress) for internal record-keeping, care history and communication related to the service.',
+          'I confirm that the health information and usual medication provided is true and complete, to the best of my knowledge.'
+        ]
+      },
+      es: {
+        label: '🩺 Salud y Bienestar',
+        defaultReminderTemplate: '¡Hola {tutor}! 🩺 Solo para confirmar la visita programada para el día {data} a las {hora}. ¿Sigue en pie?',
+        defaultBirthdayTemplate: '¡Hola {tutor}! 🎉 ¡Hoy es su cumpleaños! Le deseamos un día de salud y bienestar. 🎂',
+        fallbackClientName: 'su paciente',
+        unitLabel: 'paciente', unitLabelCap: 'Paciente',
+        subtitle: 'Cuida de tu negocio.',
+        sectionAnimal: 'Datos del paciente', labelNome: 'Nombre',
+        nomePlaceholder: 'Ej: Antonio Fernández', businessNamePlaceholder: 'Ej: Cuidados a Domicilio S.L.',
+        labelPedidos: 'Problemas activos / Motivo de la visita a domicilio', labelGroomer: 'Profesional',
+        pedidosPlaceholder: 'Ej: herida crónica en el pie, seguimiento postquirúrgico, control de tensión arterial...',
+        labelComportamento: 'Antecedentes personales',
+        comportamentoPlaceholder: 'Ej: diabetes tipo 2, hipertensión, ACV en 2022, movilidad reducida...',
+        notaExamplePlaceholder: 'Ej: cura de herida + control de tensión arterial',
+        historyNotaPlaceholder: 'Ej: herida en fase de granulación, sin signos de infección, cura cambiada, evolución favorable...',
+        incidentsHint: 'Usa esta sección para documentar situaciones clínicas relevantes — reacción a medicación, caída, empeoramiento de herida, etc. — nota de texto, fotos, o ambos, con fecha automática. Queda guardado como registro clínico.',
+        incidentNotaPlaceholder: 'Ej: Herida con signos de infección (enrojecimiento, calor local), derivado para evaluación médica.',
+        pricingSearchPlaceholder: '🔍 Buscar servicio o tipo de visita...',
+        sectionTutor: 'Contacto',
+        avisoCheckboxLabel: '⚠️ Este paciente necesita atención especial',
+        avisoTextoPlaceholder: 'Ej: riesgo de caída, agitación, dificultad de movilización, aislamiento social...',
+        idadePlaceholder: 'Ej: 78 años',
+        labelSexo: 'Sexo', sexoLabels: ['Masculino', 'Femenino', 'Otro'],
+        expenseDescPlaceholder: 'Ej: Material de cura, Guantes, Combustible...',
+        shoppingPlaceholder: 'Ej: Gasas, suero fisiológico, guantes...',
+        hintAviso: 'Marca esto si es relevante (ej: riesgo de caída, aislamiento) — la ficha de este paciente aparecerá destacada en amarillo en la lista de Clientes, con esta nota visible, para identificarlo enseguida.',
+        searchPlaceholder: 'Buscar por nombre o teléfono...',
+        searchAnimalPlaceholder: 'Buscar por nombre del paciente...',
+        searchAnimalHint: 'Escribe el nombre del paciente para buscar.',
+        quickAddLabel: 'Paciente', quickAddButtonLabel: '+ Reservar visita este día',
+        associarLabel: '¿Asociar a qué paciente?',
+        alertNomeVazio: 'Indica al menos el nombre del paciente antes de guardar.',
+        alertEscolheLista: 'Elige un paciente de la lista.',
+        alertEscolheOuCria: 'Elige un paciente de la lista, o crea uno nuevo.',
+        fallbackDeleteWord: 'este paciente',
+        faltasClearConfirm: '¿Borrar el registro de ausencias de este paciente? La tarjeta dejará de aparecer destacada en rojo en la lista de Clientes.',
+        noShowConfirm: '¿Marcar esta visita como "Paciente no estuvo presente"? Esto queda registrado en la ficha del paciente, que aparecerá destacada en rojo en la lista de Clientes.',
+        historicoTitle: 'Historial de visitas',
+        historicoHint: 'Registra los detalles de cada visita — evaluación, cuidados prestados, evolución, etc. — con o sin fotografía (ej: evolución de una herida a lo largo del tiempo).',
+        anamneseHint: 'Genera automáticamente una ficha de consentimiento informado con los datos del paciente, autorización de recogida de datos/fotografías y responsabilidad — lista para firmar en el móvil o tablet.',
+        photoSyncHint: 'Las <strong>fotografías</strong> (historial de visitas, incidencias, firmas) también se sincronizan',
+        perUnitTitle: 'Coste medio por paciente',
+        perUnitHint: 'Basado en la media de los últimos meses con datos — ayuda a entender, de forma estable, cuánto cuesta realmente cada paciente y si tus precios actuales lo cubren.',
+        noPaymentsHint: 'Todavía no hay pagos registrados este mes. Registra el pago de cada visita en la ficha del paciente para empezar a ver aquí la salud financiera de tu negocio.',
+        pricingCategories: {
+          servicos: ['Consulta de enfermería a domicilio', 'Cura de heridas / Vendaje', 'Administración de medicación', 'Extracción de sangre', 'Evaluación de signos vitales', 'Consulta de osteopatía', 'Sesión de fisioterapia', 'Evaluación de salud general', 'Otro'],
+          dimensaoLabel: 'Duración',
+          dimensoes: ['Cualquier duración', 'Hasta 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+          tipoLabel: 'Tipo de visita',
+          tipos: ['Cualquier tipo', 'Domicilio', 'Consultorio', 'Urgente', 'Rutina / Seguimiento'],
+          racaLabel: 'Nota (opcional)',
+          racaPlaceholder: 'Ej: requiere material específico — deja vacío si no aplica'
+        },
+        defaultDeclarations: [
+          'Autorizo la prestación de los cuidados de salud propuestos, habiendo sido informado/a sobre su naturaleza y finalidad.',
+          'Autorizo la recogida y el uso de datos clínicos y fotografías (ej: evolución de heridas) para fines de registro interno, historial de cuidados y comunicación relacionada con el servicio.',
+          'Confirmo que la información de salud y medicación habitual proporcionada es verdadera y completa, en la medida de mi conocimiento.'
+        ]
+      }
+    }
   },
   {
     id: 'outros',
@@ -6296,7 +6553,129 @@ const NICHE_OPTIONS = [
       'Confirmo que autorizo a prestação do serviço proposto, tendo sido informado(a) sobre a sua natureza.',
       'Autorizo a recolha e utilização de dados e fotografias para fins de registo interno, histórico e comunicação relacionada com o serviço.',
       'Assumo a responsabilidade por informação não comunicada relevante para a prestação do serviço, isentando o estabelecimento de responsabilidade nesses casos.'
-    ]
+    ],
+    i18n: {
+      en: {
+        label: '💼 Other Businesses',
+        appTagline: 'for Service Providers',
+        defaultReminderTemplate: 'Hi {tutor}! Just confirming the appointment for {data} at {hora}. Does that work?',
+        defaultBirthdayTemplate: 'Hi {tutor}! 🎉 Today is your birthday! We wish you a wonderful day. 🎂',
+        fallbackClientName: 'your client',
+        unitLabel: 'client', unitLabelCap: 'Client',
+        subtitle: 'Take care of your business.',
+        sectionAnimal: 'Client details', labelNome: 'Name',
+        nomePlaceholder: 'E.g. Client name', businessNamePlaceholder: 'E.g. My Business Name',
+        labelPedidos: 'Usual requests', labelGroomer: 'Professional',
+        pedidosPlaceholder: 'E.g. preferences or specific requests from this client...',
+        labelComportamento: 'Notes',
+        comportamentoPlaceholder: 'E.g. relevant notes about this client...',
+        notaExamplePlaceholder: 'E.g. description of the service provided',
+        historyNotaPlaceholder: 'E.g. details of the service performed, materials used, result...',
+        incidentsHint: 'Use this section to document relevant situations — a text note, photos, or both, with an automatic date. Kept as evidence in case of a complaint.',
+        incidentNotaPlaceholder: 'E.g. describe the situation here, before any procedure.',
+        pricingSearchPlaceholder: '🔍 Search service...',
+        sectionTutor: 'Contact',
+        avisoCheckboxLabel: '⚠️ This client needs special attention',
+        avisoTextoPlaceholder: 'E.g. reason for the alert...',
+        idadePlaceholder: 'E.g. 30 years',
+        labelSexo: 'Sex', sexoLabels: ['Male', 'Female', 'Other'],
+        expenseDescPlaceholder: 'E.g. Supplies, Rent, Electricity...',
+        shoppingPlaceholder: 'E.g. Supplies needed...',
+        hintAviso: 'Tick this if relevant — this client\'s file will appear highlighted in yellow in the Clients list, with this note visible, so you can spot it right away.',
+        searchPlaceholder: 'Search by name or phone...',
+        searchAnimalPlaceholder: 'Search by name...',
+        searchAnimalHint: 'Type the name to search.',
+        quickAddLabel: 'Client', quickAddButtonLabel: '+ Book a client on this day',
+        associarLabel: 'Link to which client?',
+        alertNomeVazio: 'Enter at least the name before saving.',
+        alertEscolheLista: 'Choose a client from the list.',
+        alertEscolheOuCria: 'Choose a client from the list, or create a new one.',
+        fallbackDeleteWord: 'this client',
+        faltasClearConfirm: 'Clear this client\'s no-show record? The card will no longer appear highlighted in red in the Clients list.',
+        noShowConfirm: 'Mark this appointment as "Client did not show up"? This is recorded on the client\'s file, which will appear highlighted in red in the Clients list.',
+        historicoTitle: 'History',
+        historicoHint: 'Record the details of each service provided — with or without a photo.',
+        anamneseHint: 'Automatically generates a consent form with the client\'s details, authorization to use data/photos and liability — ready to be signed on a phone or tablet.',
+        photoSyncHint: '<strong>Photos</strong> (history, incidents, signatures) also sync',
+        perUnitTitle: 'Average cost per client',
+        perUnitHint: 'Based on the average of the last few months with data — helps you understand, in a stable way, how much each client really costs and whether your current prices cover it.',
+        noPaymentsHint: 'No payments recorded this month yet. Record the payment for each service on the client\'s file to start seeing your business\'s financial health here.',
+        pricingCategories: {
+          servicos: ['Service 1', 'Service 2', 'Other'],
+          dimensaoLabel: 'Duration',
+          dimensoes: ['Any duration', 'Up to 30 min', '30–60 min', '1–2 hours', '+2 hours'],
+          tipoLabel: 'Category',
+          tipos: ['Any category', 'Other'],
+          racaLabel: 'Note (optional)',
+          racaPlaceholder: 'E.g. specific detail — leave blank if not applicable'
+        },
+        defaultDeclarations: [
+          'I confirm that I authorize the provision of the proposed service, having been informed about its nature.',
+          'I authorize the collection and use of data and photographs for internal record-keeping, history and communication related to the service.',
+          'I take responsibility for relevant information not disclosed for the provision of the service, releasing the establishment from liability in such cases.'
+        ]
+      },
+      es: {
+        label: '💼 Otros Negocios',
+        appTagline: 'para Prestadores de Servicios',
+        defaultReminderTemplate: '¡Hola {tutor}! Solo para confirmar la cita para el día {data} a las {hora}. ¿Sigue en pie?',
+        defaultBirthdayTemplate: '¡Hola {tutor}! 🎉 ¡Hoy es tu cumpleaños! Te deseamos un día maravilloso. 🎂',
+        fallbackClientName: 'tu cliente',
+        unitLabel: 'cliente', unitLabelCap: 'Cliente',
+        subtitle: 'Cuida de tu negocio.',
+        sectionAnimal: 'Datos del cliente', labelNome: 'Nombre',
+        nomePlaceholder: 'Ej: Nombre del cliente', businessNamePlaceholder: 'Ej: El Nombre de Mi Negocio',
+        labelPedidos: 'Pedidos habituales', labelGroomer: 'Profesional',
+        pedidosPlaceholder: 'Ej: preferencias o pedidos específicos de este cliente...',
+        labelComportamento: 'Notas',
+        comportamentoPlaceholder: 'Ej: notas relevantes sobre este cliente...',
+        notaExamplePlaceholder: 'Ej: descripción del servicio prestado',
+        historyNotaPlaceholder: 'Ej: detalles del servicio realizado, materiales usados, resultado...',
+        incidentsHint: 'Usa esta sección para documentar situaciones relevantes — nota de texto, fotos, o ambos, con fecha automática. Queda guardado como prueba en caso de reclamación.',
+        incidentNotaPlaceholder: 'Ej: describe aquí la situación, antes de cualquier procedimiento.',
+        pricingSearchPlaceholder: '🔍 Buscar servicio...',
+        sectionTutor: 'Contacto',
+        avisoCheckboxLabel: '⚠️ Este cliente necesita atención especial',
+        avisoTextoPlaceholder: 'Ej: motivo del aviso...',
+        idadePlaceholder: 'Ej: 30 años',
+        labelSexo: 'Sexo', sexoLabels: ['Masculino', 'Femenino', 'Otro'],
+        expenseDescPlaceholder: 'Ej: Material, Alquiler, Electricidad...',
+        shoppingPlaceholder: 'Ej: Material necesario...',
+        hintAviso: 'Marca esto si es relevante — la ficha de este cliente aparecerá destacada en amarillo en la lista de Clientes, con esta nota visible, para identificarla enseguida.',
+        searchPlaceholder: 'Buscar por nombre o teléfono...',
+        searchAnimalPlaceholder: 'Buscar por nombre...',
+        searchAnimalHint: 'Escribe el nombre para buscar.',
+        quickAddLabel: 'Cliente', quickAddButtonLabel: '+ Reservar cliente este día',
+        associarLabel: '¿Asociar a qué cliente?',
+        alertNomeVazio: 'Indica al menos el nombre antes de guardar.',
+        alertEscolheLista: 'Elige un cliente de la lista.',
+        alertEscolheOuCria: 'Elige un cliente de la lista, o crea uno nuevo.',
+        fallbackDeleteWord: 'este cliente',
+        faltasClearConfirm: '¿Borrar el registro de ausencias de este cliente? La tarjeta dejará de aparecer destacada en rojo en la lista de Clientes.',
+        noShowConfirm: '¿Marcar esta cita como "El cliente no se presentó"? Esto queda registrado en la ficha del cliente, que aparecerá destacada en rojo en la lista de Clientes.',
+        historicoTitle: 'Historial',
+        historicoHint: 'Registra los detalles de cada servicio prestado — con o sin fotografía.',
+        anamneseHint: 'Genera automáticamente una ficha de consentimiento con los datos del cliente, autorización de uso de datos/fotografías y responsabilidad — lista para firmar en el móvil o tablet.',
+        photoSyncHint: 'Las <strong>fotografías</strong> (historial, incidencias, firmas) también se sincronizan',
+        perUnitTitle: 'Coste medio por cliente',
+        perUnitHint: 'Basado en la media de los últimos meses con datos — ayuda a entender, de forma estable, cuánto cuesta realmente cada cliente y si tus precios actuales lo cubren.',
+        noPaymentsHint: 'Todavía no hay pagos registrados este mes. Registra el pago de cada servicio en la ficha del cliente para empezar a ver aquí la salud financiera de tu negocio.',
+        pricingCategories: {
+          servicos: ['Servicio 1', 'Servicio 2', 'Otro'],
+          dimensaoLabel: 'Duración',
+          dimensoes: ['Cualquier duración', 'Hasta 30 min', '30–60 min', '1–2 horas', '+2 horas'],
+          tipoLabel: 'Categoría',
+          tipos: ['Cualquier categoría', 'Otro'],
+          racaLabel: 'Nota (opcional)',
+          racaPlaceholder: 'Ej: detalle específico — deja vacío si no aplica'
+        },
+        defaultDeclarations: [
+          'Confirmo que autorizo la prestación del servicio propuesto, habiendo sido informado/a sobre su naturaleza.',
+          'Autorizo la recogida y el uso de datos y fotografías para fines de registro interno, historial y comunicación relacionada con el servicio.',
+          'Asumo la responsabilidad por información no comunicada relevante para la prestación del servicio, eximiendo al establecimiento de responsabilidad en esos casos.'
+        ]
+      }
+    }
   }
 ];
 
@@ -6315,12 +6694,15 @@ function getCurrentNiche(){
   const id = localStorage.getItem(NICHE_KEY) || 'grooming';
   const base = NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
   let result = base;
-  if(base.customizable){
-    result = { ...result, ...getNicheCustomizations() };
-  }
   const lang = getCurrentLang();
   if(lang !== 'pt' && base.i18n && base.i18n[lang]){
     result = { ...result, ...base.i18n[lang] };
+  }
+  // As personalizações escritas à mão pela própria pessoa (nicho "Outros Negócios")
+  // vêm sempre por último — nunca são substituídas pela tradução automática, seja
+  // qual for a língua escolhida.
+  if(base.customizable){
+    result = { ...result, ...getNicheCustomizations() };
   }
   return result;
 }
@@ -6990,7 +7372,7 @@ async function handleImportFile(event){
       throw new Error('Formato de ficheiro não reconhecido.');
     }
 
-    const dateLabel = data.exportedAt ? new Date(data.exportedAt).toLocaleString('pt-PT') : 'data desconhecida';
+    const dateLabel = data.exportedAt ? new Date(data.exportedAt).toLocaleString(getDateLocale()) : 'data desconhecida';
     const ok = confirm(`Isto vai SUBSTITUIR todos os dados atuais desta aplicação neste aparelho pelos dados do ficheiro exportado em ${dateLabel}. Esta ação não pode ser desfeita. Continuar?`);
     if(!ok){ event.target.value = ''; return; }
 
@@ -7211,7 +7593,7 @@ if(!deviceId){
 
 function lastSyncLabel(){
   if(!lastSyncAt) return 'ainda não sincronizou';
-  return new Date(lastSyncAt).toLocaleTimeString('pt-PT');
+  return new Date(lastSyncAt).toLocaleTimeString(getDateLocale());
 }
 
 function isGoogleSyncConfigured(){
