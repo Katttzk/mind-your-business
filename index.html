@@ -29,13 +29,11 @@
       if(accent) document.documentElement.style.setProperty('--mustard', accent);
     }
 
-    // Se a pessoa ainda nunca escolheu uma língua, mostra esse ecrã primeiro — antes
-    // até da escolha de nicho — evitando qualquer "flash" da app.
-    if(localStorage.getItem('mtb_lang') === null){
-      document.documentElement.classList.add('needs-lang-choice');
-    } else if(localStorage.getItem('mtb_niche') === null){
-      // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
-      // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
+    // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
+    // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
+    // A língua já não bloqueia nada — fica como um detalhe discreto (bandeiras) dentro
+    // deste mesmo ecrã, para o foco continuar a ser a escolha do nicho.
+    if(localStorage.getItem('mtb_niche') === null){
       document.documentElement.classList.add('needs-niche-choice');
     }
   } catch(e){}
@@ -234,18 +232,16 @@
   html[data-theme="patinhas"] .btn-primary{background:#7FB6D9;}
   *{box-sizing:border-box;}
 
-  /* Ecrã de boas-vindas — escolha de língua e do tipo de negócio na primeira utilização */
-  #niche-onboarding-screen, #lang-onboarding-screen{display:none;}
-  html.needs-niche-choice #niche-onboarding-screen,
-  html.needs-lang-choice #lang-onboarding-screen{
+  /* Ecrã de boas-vindas — foco na escolha do tipo de negócio; a língua fica discreta, em cima */
+  #niche-onboarding-screen{display:none;}
+  html.needs-niche-choice #niche-onboarding-screen{
     display:flex;flex-direction:column;position:fixed;inset:0;z-index:1000;
     background:linear-gradient(160deg, var(--teal), var(--teal-dark));
     padding:40px 24px;overflow-y:auto;
   }
-  html.needs-niche-choice header, html.needs-lang-choice header,
-  html.needs-niche-choice .tab-bar, html.needs-lang-choice .tab-bar,
-  html.needs-niche-choice .screen, html.needs-lang-choice .screen{display:none !important;}
-  html.needs-lang-choice #niche-onboarding-screen{display:none !important;}
+  html.needs-niche-choice header,
+  html.needs-niche-choice .tab-bar,
+  html.needs-niche-choice .screen{display:none !important;}
   .lang-choice-card{
     display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.95);
     border-radius:16px;padding:16px;margin-bottom:10px;text-align:left;
@@ -254,6 +250,13 @@
   .lang-choice-card .flag{font-size:1.7rem;flex-shrink:0;}
   .lang-choice-card .name{font-weight:700;color:var(--teal-dark);font-size:1rem;flex:1;text-align:left;}
   .lang-choice-card .arrow{color:var(--teal);font-size:1.3rem;flex-shrink:0;}
+  .onboarding-lang-row{display:flex;justify-content:center;gap:8px;margin-bottom:18px;}
+  .onboarding-lang-flag{
+    font-size:1.3rem;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+    border-radius:10px;width:40px;height:36px;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;padding:0;opacity:.65;
+  }
+  .onboarding-lang-flag.active{opacity:1;background:rgba(255,255,255,.95);}
   .onboarding-inner{max-width:420px;margin:auto;width:100%;text-align:center;}
   .onboarding-mark{width:4.2rem;height:4.2rem;display:block;margin:0 auto 6px;}
   .onboarding-inner h1{
@@ -957,17 +960,9 @@
 </head>
 <body>
 
-<div id="lang-onboarding-screen">
-  <div class="onboarding-inner">
-    <span style="font-size:2.6rem;display:block;margin-bottom:6px;">🌐</span>
-    <h1>Welcome! · Bem-vindo(a)!</h1>
-    <div class="sub">Choose your language · Escolhe a tua língua</div>
-    <div id="lang-onboarding-list"></div>
-  </div>
-</div>
-
 <div id="niche-onboarding-screen">
   <div class="onboarding-inner">
+    <div class="onboarding-lang-row" id="onboarding-lang-row"></div>
     <svg class="onboarding-mark" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <polyline points="145,340 145,147 256,264 367,147 367,340" fill="none" stroke="#D4A24C" stroke-width="29" stroke-linecap="round" stroke-linejoin="round"/>
       <line x1="256" y1="264" x2="256" y2="432" stroke="#D4A24C" stroke-width="23" stroke-linecap="round"/>
@@ -2740,6 +2735,7 @@ function fillForm(c){
     img.src = '';
     img.classList.add('placeholder');
   }
+  historyExpanded = false;
   renderGallery();
   pendingHistoryPhotos = [];
   renderStagedHistoryPhotos();
@@ -2896,6 +2892,9 @@ async function addHistoryEntry(){
   renderGallery();
 }
 
+const HISTORY_PAGE_SIZE = 6;
+let historyExpanded = false;
+
 function renderGallery(){
   const grid = document.getElementById('gallery-grid');
   if(!grid) return;
@@ -2907,14 +2906,21 @@ function renderGallery(){
   }
   const withIdx = history.map((item, idx) => ({ ...item, _idx: idx }));
   const sorted = withIdx.slice().sort((a,b) => (b.date||'').localeCompare(a.date||''));
-  sorted.forEach(item => {
+
+  // Só mostra os registos mais recentes de início — isto evita ter de carregar e
+  // descodificar de uma vez todas as fotos acumuladas ao longo de anos, o que era
+  // a principal causa de a ficha demorar a abrir em clientes mais antigos.
+  const visible = historyExpanded ? sorted : sorted.slice(0, HISTORY_PAGE_SIZE);
+  const hiddenCount = sorted.length - visible.length;
+
+  visible.forEach(item => {
     const card = document.createElement('div');
     card.className = 'history-card';
     const fotos = getHistoryEntryPhotos(item);
     const fotosHtml = fotos.length > 0
       ? `<div class="history-photo-grid">${fotos.map(src => {
           const safeImg = src.replace(/'/g, "\\'");
-          return `<img src="${src}" class="history-photo" onclick="openLightbox('${safeImg}')">`;
+          return `<img src="${src}" class="history-photo" loading="lazy" decoding="async" onclick="openLightbox('${safeImg}')">`;
         }).join('')}</div>`
       : '';
     card.innerHTML = `
@@ -2927,6 +2933,15 @@ function renderGallery(){
     `;
     grid.appendChild(card);
   });
+
+  if(hiddenCount > 0){
+    const btn = document.createElement('button');
+    btn.className = 'btn-ghost';
+    btn.style.cssText = 'width:100%;margin-top:8px;border:1px solid var(--line);';
+    btn.textContent = `Ver histórico mais antigo (${hiddenCount})`;
+    btn.onclick = () => { historyExpanded = true; renderGallery(); };
+    grid.appendChild(btn);
+  }
 }
 
 async function removeHistoryPhoto(idOrIdx){
@@ -3023,7 +3038,7 @@ function renderIncidentList(){
       </div>
       ${r.nota ? `<div class="incident-note">${escapeHtml(r.nota)}</div>` : ''}
       <div class="incident-photos">
-        ${r.fotos.map(f => `<img src="${f}" onclick="openLightbox('${f.replace(/'/g,"\\'")}')">`).join('')}
+        ${r.fotos.map(f => `<img src="${f}" loading="lazy" decoding="async" onclick="openLightbox('${f.replace(/'/g,"\\'")}')">`).join('')}
       </div>
     </div>
   `).join('');
@@ -3041,7 +3056,8 @@ function openLightbox(src){
 
 // ---------- Pagamentos ----------
 function formatCurrency(v){
-  return (Number(v)||0).toLocaleString('pt-PT', { style:'currency', currency:'EUR' });
+  const cur = getCurrentCurrency();
+  return (Number(v)||0).toLocaleString(cur.locale, { style:'currency', currency: cur.code });
 }
 
 let pendingStockUsage = [];
@@ -3519,7 +3535,7 @@ function viewAnamnese(id){
 
         <h4>Assinatura do tutor</h4>
         <div class="signature-wrap" style="border-style:solid;">
-          <img src="${record.assinatura}" style="width:100%;height:160px;object-fit:contain;">
+          <img src="${record.assinatura}" loading="lazy" decoding="async" style="width:100%;height:160px;object-fit:contain;">
         </div>
 
         <button class="btn-secondary anamnese-no-print" style="width:100%;margin-top:16px;" onclick="printAnamnese()">🖨️ Imprimir / Guardar PDF</button>
@@ -4015,7 +4031,7 @@ async function renderList(){
     if(numFaltas > 0 && hasWarning) cardClass += ' has-warning-stripe';
     card.className = cardClass;
     const photoHtml = c.foto
-      ? `<img src="${c.foto}">`
+      ? `<img src="${c.foto}" loading="lazy" decoding="async">`
       : `<div class="ph-placeholder">${getCurrentNiche().placeholderIcon}</div>`;
     const wa = whatsappUrl(c.tutorContacto);
     const tel = telUrl(c.tutorContacto);
@@ -5681,13 +5697,41 @@ function resetBranding(){
 // ---------- Temas de aparência ----------
 // ---------- Nicho de negócio (Grooming, Estética, ...) ----------
 const LANG_KEY = 'mtb_lang';
+// Por agora, só estas três línguas ficam disponíveis para escolha — foco no
+// lançamento inicial. As traduções de alemão/chinês/italiano continuam prontas
+// no dicionário TRANSLATIONS mais abaixo; para as voltar a ativar mais tarde,
+// basta acrescentá-las de novo a esta lista.
 const LANG_OPTIONS = [
   { code: 'pt', label: 'Português', flag: '🇵🇹' },
   { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
-  { code: 'it', label: 'Italiano', flag: '🇮🇹' }
+  { code: 'es', label: 'Español', flag: '🇪🇸' }
+];
+
+const CURRENCY_KEY = 'mtb_currency';
+const CURRENCY_OPTIONS = [
+  { code: 'EUR', locale: 'pt-PT', label: 'Euro (€)' },
+  { code: 'USD', locale: 'en-US', label: 'Dólar americano ($)' },
+  { code: 'GBP', locale: 'en-GB', label: 'Libra esterlina (£)' },
+  { code: 'BRL', locale: 'pt-BR', label: 'Real brasileiro (R$)' },
+  { code: 'MXN', locale: 'es-MX', label: 'Peso mexicano ($)' }
+];
+
+function getCurrentCurrency(){
+  const code = localStorage.getItem(CURRENCY_KEY) || 'EUR';
+  return CURRENCY_OPTIONS.find(c => c.code === code) || CURRENCY_OPTIONS[0];
+}
+
+// Variantes regionais mostradas no ecrã de boas-vindas e em Definições → Idioma —
+// cada uma escolhe simultaneamente a língua (texto da app) e uma moeda por defeito
+// sensata para essa região. A moeda, depois disso, fica sempre editável à parte,
+// em Definições → Moeda, sem precisar de voltar a mexer na língua.
+const REGION_OPTIONS = [
+  { code: 'pt-PT', lang: 'pt', currency: 'EUR', label: 'Português (PT)', flag: '🇵🇹' },
+  { code: 'pt-BR', lang: 'pt', currency: 'BRL', label: 'Português (BR)', flag: '🇧🇷' },
+  { code: 'en-GB', lang: 'en', currency: 'GBP', label: 'English (UK)', flag: '🇬🇧' },
+  { code: 'en-US', lang: 'en', currency: 'USD', label: 'English (US)', flag: '🇺🇸' },
+  { code: 'es-ES', lang: 'es', currency: 'EUR', label: 'Español (España)', flag: '🇪🇸' },
+  { code: 'es-MX', lang: 'es', currency: 'MXN', label: 'Español (México)', flag: '🇲🇽' }
 ];
 
 // Dicionário de traduções — cobre o essencial da interface fixa da app (separadores,
@@ -5761,9 +5805,19 @@ function getCurrentLang(){
   return localStorage.getItem(LANG_KEY) || 'pt';
 }
 
-function chooseLanguageFromSettings(code){
-  localStorage.setItem(LANG_KEY, code);
+function chooseRegionFromSettings(regionCode){
+  const region = REGION_OPTIONS.find(r => r.code === regionCode);
+  if(!region) return;
+  localStorage.setItem(LANG_KEY, region.lang);
+  localStorage.setItem(CURRENCY_KEY, region.currency);
   applyLanguage();
+  applyNicheUI();
+  settingsView = 'menu';
+  renderSettingsModal();
+}
+
+function chooseCurrencyFromSettings(code){
+  localStorage.setItem(CURRENCY_KEY, code);
   settingsView = 'menu';
   renderSettingsModal();
 }
@@ -5867,7 +5921,131 @@ const NICHE_OPTIONS = [
       'Confirmo que o meu animal se encontra atualmente saudável, sem doenças contagiosas, parasitas visíveis ou lesões não comunicadas à equipa, e apto para o serviço de grooming.',
       'Autorizo a recolha e utilização de dados e fotografias do meu animal para fins de registo interno, histórico de tosquias e comunicação relacionada com o serviço.',
       'Assumo a responsabilidade pelo bem-estar do meu animal, isentando o estabelecimento de responsabilidade por reações comportamentais, condições de saúde pré-existentes não comunicadas, ou situações imprevisíveis durante o serviço.'
-    ]
+    ],
+    // Tradução completa deste nicho — aplicada por cima dos campos acima quando a
+    // língua escolhida não é o português. Cada língua só precisa de listar os campos
+    // que realmente mudam (o resto herda sempre do português acima).
+    i18n: {
+      en: {
+        label: '🐾 Grooming / Pet Care',
+        defaultReminderTemplate: 'Hi {tutor}! 🐾 Just confirming the appointment for {nome_artigo} on {data} at {hora}. Does that work?',
+        defaultBirthdayTemplate: 'Hi {tutor}! 🎉🐾 Today is {nome_artigo}\'s birthday! We wish a day full of cuddles and treats. 🎂',
+        fallbackClientName: 'your pet',
+        unitLabel: 'pet', unitLabelCap: 'Pet',
+        subtitle: 'Take care of your business.',
+        sectionAnimal: 'Pet details', labelNome: 'Name',
+        nomePlaceholder: 'E.g. Toby', businessNamePlaceholder: 'E.g. Doggy Style Grooming',
+        racaPlaceholder: 'E.g. Bichon Frisé',
+        labelComportamento: 'Behavior', labelPedidos: 'Usual requests', labelGroomer: 'Professional',
+        comportamentoPlaceholder: 'E.g. nervous with the dryer, calm, needs breaks...',
+        pedidosPlaceholder: 'E.g. short trim on the paws, leave the fur longer on the ears...',
+        notaExamplePlaceholder: 'E.g. full groom + bath',
+        historyNotaPlaceholder: 'E.g. 7F blade on the body, scissors on the head, teddy bear face, medium length...',
+        incidentsHint: 'Use this section to document things like irritated skin, an inflamed ear or matted fur — a text note, photos, or both, with an automatic date. Kept as evidence in case of a complaint.',
+        incidentNotaPlaceholder: 'E.g. Left ear already inflamed on arrival, before any procedure.',
+        pricingSearchPlaceholder: '🔍 Search service, breed or coat type...',
+        sectionTutor: 'Owner',
+        avisoCheckboxLabel: '⚠️ This pet needs special attention',
+        avisoTextoPlaceholder: 'E.g. fleas, aggressive, bites during drying...',
+        idadePlaceholder: 'E.g. 3 years',
+        labelSexo: 'Sex', sexoLabels: ['Male', 'Female', 'Other'],
+        expenseDescPlaceholder: 'E.g. Professional shampoo, Rent, Electricity...',
+        shoppingPlaceholder: 'E.g. Hypoallergenic shampoo',
+        hintAviso: 'Tick this if relevant — this pet\'s file will appear highlighted in yellow in the Clients list, with this note visible, so you can spot it right away.',
+        searchPlaceholder: 'Search by name, owner or phone...',
+        searchAnimalPlaceholder: 'Search by pet name...',
+        searchAnimalHint: 'Type the pet\'s name to search.',
+        quickAddLabel: 'Pet / client', quickAddButtonLabel: '+ Book a pet on this day',
+        associarLabel: 'Link to which pet / client?',
+        alertNomeVazio: 'Enter at least the pet\'s name before saving.',
+        alertEscolheLista: 'Choose a pet from the list.',
+        alertEscolheOuCria: 'Choose a pet from the list, or create a new one.',
+        fallbackDeleteWord: 'this pet',
+        faltasClearConfirm: 'Clear this pet\'s no-show record? The card will no longer appear highlighted in red in the Clients list.',
+        noShowConfirm: 'Mark this appointment as "Client did not show up"? This is recorded on the pet\'s file, which will appear highlighted in red in the Clients list.',
+        historicoTitle: 'Grooming history',
+        historicoHint: 'Record the details of each groom — blades used, overall length, face style, etc. — with or without a photo.',
+        anamneseHint: 'Automatically generates a health declaration form with the pet\'s and owner\'s details, health declaration, authorization to use data/photos and owner liability — ready to be signed on a phone or tablet.',
+        photoSyncHint: '<strong>Photos</strong> (pet photo, history, incidents, signatures) also sync',
+        perUnitTitle: 'Average cost per pet',
+        perUnitHint: 'Based on the average of the last few months with data — helps you understand, in a stable way, how much each pet really costs and whether your current prices cover it.',
+        noPaymentsHint: 'No payments recorded this month yet. Record the payment for each groom on the client\'s file to start seeing your business\'s financial health here.',
+        pricingCategories: {
+          servicos: ['Full groom', 'Hygienic trim', 'Scissor trim', 'Clipper trim', 'Bath', 'Bath + brushing', 'Deshedding', 'Nail trim', 'Ear cleaning', 'Other'],
+          dimensaoLabel: 'Size / weight',
+          dimensoes: ['Any size', 'Small (up to 10kg)', 'Medium (10–20kg)', 'Large (20–30kg)', 'Giant (30kg+)'],
+          tipoLabel: 'Coat type',
+          tipos: ['Any type', 'Short', 'Medium', 'Long', 'Double / Dense', 'Wire', 'Curly'],
+          racaLabel: 'Breed (optional)',
+          racaPlaceholder: 'E.g. Poodle — leave blank for any breed'
+        },
+        defaultDeclarations: [
+          'I confirm that my pet is currently healthy, free of contagious diseases, visible parasites or injuries not disclosed to the team, and fit for the grooming service.',
+          'I authorize the collection and use of my pet\'s data and photographs for internal record-keeping, grooming history and communication related to the service.',
+          'I take responsibility for my pet\'s wellbeing, releasing the establishment from liability for behavioral reactions, pre-existing health conditions not disclosed, or unforeseeable situations during the service.'
+        ]
+      },
+      es: {
+        label: '🐾 Peluquería Canina / Cuidado de Mascotas',
+        appTagline: 'para Peluqueros',
+        defaultReminderTemplate: '¡Hola {tutor}! 🐾 Solo para confirmar la cita {nome_artigo} para el día {data} a las {hora}. ¿Sigue en pie?',
+        defaultBirthdayTemplate: '¡Hola {tutor}! 🎉🐾 ¡Hoy es el cumpleaños {nome_artigo}! Le deseamos un día lleno de mimos y premios. 🎂',
+        fallbackClientName: 'tu mascota',
+        unitLabel: 'mascota', unitLabelCap: 'Mascota',
+        subtitle: 'Cuida de tu negocio.',
+        sectionAnimal: 'Datos de la mascota', labelNome: 'Nombre',
+        nomePlaceholder: 'Ej: Toby', businessNamePlaceholder: 'Ej: Doggy Style Grooming',
+        racaPlaceholder: 'Ej: Bichón Frisé',
+        labelComportamento: 'Comportamiento', labelPedidos: 'Pedidos habituales', labelGroomer: 'Profesional',
+        comportamentoPlaceholder: 'Ej: nervioso con el secador, tranquilo, necesita pausas...',
+        pedidosPlaceholder: 'Ej: corte corto en las patas, dejar el pelo más largo en las orejas...',
+        notaExamplePlaceholder: 'Ej: corte completo + baño',
+        historyNotaPlaceholder: 'Ej: Cuchilla 7F en el cuerpo, tijera en la cabeza, carita de oso, largo medio...',
+        incidentsHint: 'Usa esta sección para documentar situaciones como piel irritada, oreja inflamada o pelo apelmazado — nota de texto, fotos, o ambos, con fecha automática. Queda guardado como prueba en caso de reclamación.',
+        incidentNotaPlaceholder: 'Ej: Oreja izquierda ya inflamada a la llegada, antes de cualquier procedimiento.',
+        pricingSearchPlaceholder: '🔍 Buscar servicio, raza o tipo de pelo...',
+        sectionTutor: 'Dueño/a',
+        avisoCheckboxLabel: '⚠️ Esta mascota necesita atención especial',
+        avisoTextoPlaceholder: 'Ej: pulgas, agresivo, muerde durante el secado...',
+        idadePlaceholder: 'Ej: 3 años',
+        labelSexo: 'Sexo', sexoLabels: ['Macho', 'Hembra', 'Otro'],
+        expenseDescPlaceholder: 'Ej: Champú profesional, Alquiler, Electricidad...',
+        shoppingPlaceholder: 'Ej: Champú hipoalergénico',
+        hintAviso: 'Marca esto si es relevante — la ficha de esta mascota aparecerá destacada en amarillo en la lista de Clientes, con esta nota visible, para identificarla enseguida.',
+        searchPlaceholder: 'Buscar por nombre, dueño/a o teléfono...',
+        searchAnimalPlaceholder: 'Buscar por nombre de la mascota...',
+        searchAnimalHint: 'Escribe el nombre de la mascota para buscar.',
+        quickAddLabel: 'Mascota / cliente', quickAddButtonLabel: '+ Reservar mascota este día',
+        associarLabel: '¿Asociar a qué mascota / cliente?',
+        alertNomeVazio: 'Indica al menos el nombre de la mascota antes de guardar.',
+        alertEscolheLista: 'Elige una mascota de la lista.',
+        alertEscolheOuCria: 'Elige una mascota de la lista, o crea una nueva.',
+        fallbackDeleteWord: 'esta mascota',
+        faltasClearConfirm: '¿Borrar el registro de ausencias de esta mascota? La tarjeta dejará de aparecer destacada en rojo en la lista de Clientes.',
+        noShowConfirm: '¿Marcar esta cita como "El cliente no se presentó"? Esto queda registrado en la ficha de la mascota, que aparecerá destacada en rojo en la lista de Clientes.',
+        historicoTitle: 'Historial de peluquería',
+        historicoHint: 'Registra los detalles de cada sesión — cuchillas usadas, largo general, tipo de carita, etc. — con o sin fotografía.',
+        anamneseHint: 'Genera automáticamente una ficha de anamnesis con los datos de la mascota y del dueño/a, declaración de salud, autorización de uso de datos/fotografías y responsabilidad del dueño/a — lista para firmar en el móvil o tablet.',
+        photoSyncHint: 'Las <strong>fotografías</strong> (foto de la mascota, historial, incidencias, firmas) también se sincronizan',
+        perUnitTitle: 'Coste medio por mascota',
+        perUnitHint: 'Basado en la media de los últimos meses con datos — ayuda a entender, de forma estable, cuánto cuesta realmente cada mascota y si tus precios actuales lo cubren.',
+        noPaymentsHint: 'Todavía no hay pagos registrados este mes. Registra el pago de cada sesión en la ficha del cliente para empezar a ver aquí la salud financiera de tu negocio.',
+        pricingCategories: {
+          servicos: ['Corte completo', 'Corte higiénico', 'Corte a tijera', 'Corte a máquina', 'Baño', 'Baño + cepillado', 'Deslanado', 'Corte de uñas', 'Limpieza de oídos', 'Otro'],
+          dimensaoLabel: 'Tamaño / peso',
+          dimensoes: ['Cualquier tamaño', 'Pequeño (hasta 10kg)', 'Mediano (10–20kg)', 'Grande (20–30kg)', 'Gigante (+30kg)'],
+          tipoLabel: 'Tipo de pelo',
+          tipos: ['Cualquier tipo', 'Corto', 'Medio', 'Largo', 'Doble / Denso', 'Duro (wire)', 'Rizado'],
+          racaLabel: 'Raza (opcional)',
+          racaPlaceholder: 'Ej: Caniche — deja vacío para cualquier raza'
+        },
+        defaultDeclarations: [
+          'Confirmo que mi mascota se encuentra actualmente sana, sin enfermedades contagiosas, parásitos visibles o lesiones no comunicadas al equipo, y apta para el servicio de peluquería.',
+          'Autorizo la recogida y el uso de datos y fotografías de mi mascota para fines de registro interno, historial de peluquería y comunicación relacionada con el servicio.',
+          'Asumo la responsabilidad por el bienestar de mi mascota, eximiendo al establecimiento de responsabilidad por reacciones de comportamiento, condiciones de salud preexistentes no comunicadas, o situaciones imprevisibles durante el servicio.'
+        ]
+      }
+    }
   },
   {
     id: 'estetica',
@@ -6136,10 +6314,15 @@ function saveNicheCustomizations(overrides){
 function getCurrentNiche(){
   const id = localStorage.getItem(NICHE_KEY) || 'grooming';
   const base = NICHE_OPTIONS.find(n => n.id === id) || NICHE_OPTIONS[0];
+  let result = base;
   if(base.customizable){
-    return { ...base, ...getNicheCustomizations() };
+    result = { ...result, ...getNicheCustomizations() };
   }
-  return base;
+  const lang = getCurrentLang();
+  if(lang !== 'pt' && base.i18n && base.i18n[lang]){
+    result = { ...result, ...base.i18n[lang] };
+  }
+  return result;
 }
 
 function saveCustomFieldsFromForm(){
@@ -6336,6 +6519,7 @@ function renderSettingsModal(){
 
   if(settingsView === 'language'){
     const currentLangCode = getCurrentLang();
+    const currentCurrencyCode = getCurrentCurrency().code;
     overlay.innerHTML = `
       <div class="appt-picker-panel">
         <div class="appt-picker-header">
@@ -6343,12 +6527,41 @@ function renderSettingsModal(){
           <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
         </div>
         <h3 style="margin-top:10px;">🌐 Idioma / Language</h3>
-        <div class="hint" style="margin:6px 0 14px;">Isto traduz os separadores, o menu de Definições e os ecrãs de boas-vindas. Os campos próprios de cada ficha continuam em português, por agora.</div>
-        ${LANG_OPTIONS.map(l => `
-          <button class="lang-choice-card" onclick="chooseLanguageFromSettings('${l.code}')" style="${l.code === currentLangCode ? 'border:2px solid var(--teal);' : ''}">
-            <span class="flag">${l.flag}</span>
-            <span class="name">${l.label}</span>
-            ${l.code === currentLangCode ? '<span class="arrow">✓</span>' : ''}
+        <div class="hint" style="margin:6px 0 14px;">Isto traduz os separadores, o menu de Definições e os ecrãs de boas-vindas (e, no nicho de Grooming, também os campos e mensagens). Cada região já vem com uma moeda sugerida — mas podes sempre mudar a moeda à parte, em "💰 Moeda", sem mexer na língua.</div>
+        ${REGION_OPTIONS.map(r => {
+          const isActive = r.lang === currentLangCode && r.currency === currentCurrencyCode;
+          return `
+          <button class="lang-choice-card" onclick="chooseRegionFromSettings('${r.code}')" style="${isActive ? 'border:2px solid var(--teal);' : ''}">
+            <span class="flag">${r.flag}</span>
+            <span class="name">${r.label}</span>
+            ${isActive ? '<span class="arrow">✓</span>' : ''}
+          </button>
+        `;
+        }).join('')}
+        <button class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='currency';renderSettingsModal();">
+          <div class="settings-menu-icon">💰</div>
+          <div class="settings-menu-info">
+            <div class="settings-menu-title">Moeda atual</div>
+            <div class="settings-menu-sub">${escapeHtml(getCurrentCurrency().label)}</div>
+          </div>
+          <span class="settings-menu-arrow">›</span>
+        </button>
+      </div>
+    `;
+  } else if(settingsView === 'currency'){
+    const currentCurrencyCode = getCurrentCurrency().code;
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='language';renderSettingsModal();">‹ Idioma</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">💰 Moeda</h3>
+        <div class="hint" style="margin:6px 0 14px;">Usada em todos os preços, pagamentos e relatórios financeiros da app. Independente da língua — podes mudar isto a qualquer momento.</div>
+        ${CURRENCY_OPTIONS.map(c => `
+          <button class="lang-choice-card" onclick="chooseCurrencyFromSettings('${c.code}')" style="${c.code === currentCurrencyCode ? 'border:2px solid var(--teal);' : ''}">
+            <span class="name" style="flex:1;">${c.label}</span>
+            ${c.code === currentCurrencyCode ? '<span class="arrow">✓</span>' : ''}
           </button>
         `).join('')}
       </div>
@@ -6613,7 +6826,7 @@ function renderSettingsModal(){
             <div class="settings-menu-icon">🌐</div>
             <div class="settings-menu-info">
               <div class="settings-menu-title">${t('menuLanguage','🌐 Idioma')}</div>
-              <div class="settings-menu-sub">${(LANG_OPTIONS.find(l => l.code === getCurrentLang()) || LANG_OPTIONS[0]).label}</div>
+              <div class="settings-menu-sub">${(LANG_OPTIONS.find(l => l.code === getCurrentLang()) || LANG_OPTIONS[0]).label} · ${getCurrentCurrency().code}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
@@ -6819,7 +7032,7 @@ async function handleImportFile(event){
 // ---------- Sincronização Google Drive (multi-dispositivo) ----------
 // PASSO OBRIGATÓRIO: substitui pelo Client ID OAuth criado na Google Cloud Console
 const GOOGLE_CLIENT_ID = '695642606391-adoe63hlatn4tgr35v0kce3phf8in0bg.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 function DRIVE_FOLDER_NAME(){ return nicheKey('MindYourBusiness-Sync'); }
 const SYNC_INTERVAL_MS = 5000;
@@ -7136,39 +7349,13 @@ function isValidDriveId(id){
   return typeof id === 'string' && id.length > 5 && id !== 'undefined' && id !== 'null';
 }
 
+// A pasta de dados da aplicação ("appDataFolder") é um espaço especial, reservado
+// pela própria Google a esta app — não é uma pasta normal, por isso não precisa de
+// ser procurada nem criada: já existe sempre, assim que a pessoa autoriza a app.
+// Fica escondida da vista normal do Drive, mas continua acessível (e igual) em
+// qualquer aparelho onde a mesma pessoa autorize a mesma app.
 async function ensureDriveFolder(){
-  // Auto-cura: se ficou guardada uma pasta inválida de uma tentativa anterior com erro, ignora-a.
-  if(driveFolderId && !isValidDriveId(driveFolderId)){
-    driveFolderId = null;
-    localStorage.removeItem(nicheKey('mtb_drive_folder_id'));
-  }
-  if(driveFolderId) return driveFolderId;
-
-  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME()}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
-  const searchData = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id,name,createdTime)`);
-
-  if(searchData && searchData.files && searchData.files.length > 0){
-    // Usa sempre a pasta mais antiga — garante que todos os aparelhos convergem para a mesma,
-    // mesmo que tenham existido pastas duplicadas criadas por engano.
-    driveFolderId = searchData.files[0].id;
-  } else {
-    const createData = await driveFetchJson('https://www.googleapis.com/drive/v3/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: DRIVE_FOLDER_NAME(), mimeType: 'application/vnd.google-apps.folder' })
-    });
-    if(!createData || !isValidDriveId(createData.id)){
-      throw new Error('A Google não devolveu um ID de pasta válido ao criar a pasta de sincronização.');
-    }
-    driveFolderId = createData.id;
-  }
-
-  if(!isValidDriveId(driveFolderId)){
-    driveFolderId = null;
-    throw new Error('Não foi possível confirmar a pasta de sincronização no Drive.');
-  }
-
-  localStorage.setItem(nicheKey('mtb_drive_folder_id'), driveFolderId);
+  driveFolderId = 'appDataFolder';
   return driveFolderId;
 }
 
@@ -7216,8 +7403,8 @@ async function resetDriveSyncConnection(){
 
 async function findOwnDeviceFileId(){
   const fileName = `device-${deviceId}.json`;
-  const q = encodeURIComponent(`name='${fileName}' and '${driveFolderId}' in parents and trashed=false`);
-  const data = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const q = encodeURIComponent(`name='${fileName}' and trashed=false`);
+  const data = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id,name)`);
   return (data && data.files && data.files[0]) ? data.files[0].id : null;
 }
 
@@ -7289,9 +7476,8 @@ async function uploadDeviceSnapshot(){
 }
 
 async function listRemoteDeviceFiles(){
-  if(!isValidDriveId(driveFolderId)) return [];
-  const q = encodeURIComponent(`'${driveFolderId}' in parents and name contains 'device-' and trashed=false`);
-  const data = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  const q = encodeURIComponent(`name contains 'device-' and trashed=false`);
+  const data = await driveFetchJson(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=appDataFolder&fields=files(id,name)`);
   const ownFileName = `device-${deviceId}.json`;
   return ((data && data.files) || []).filter(f => f.name !== ownFileName);
 }
@@ -7555,33 +7741,31 @@ function chooseNicheOnboarding(id){
   initApp();
 }
 
-function renderLangOnboardingList(){
-  const listEl = document.getElementById('lang-onboarding-list');
-  if(!listEl) return;
-  listEl.innerHTML = LANG_OPTIONS.map(l => `
-    <button class="lang-choice-card" onclick="chooseLangOnboarding('${l.code}')">
-      <span class="flag">${l.flag}</span>
-      <span class="name">${l.label}</span>
-      <span class="arrow">›</span>
-    </button>
-  `).join('');
+// Pequena fila de bandeiras no topo do ecrã de boas-vindas — discreta, não é o foco
+// principal (esse continua a ser a escolha do nicho, logo abaixo). Trocar de língua
+// aqui só atualiza os textos deste mesmo ecrã, sem avançar nem fechar nada.
+function renderOnboardingLangRow(){
+  const rowEl = document.getElementById('onboarding-lang-row');
+  if(!rowEl) return;
+  const currentLang = getCurrentLang();
+  const currentCurrency = localStorage.getItem(CURRENCY_KEY);
+  rowEl.innerHTML = REGION_OPTIONS.map(r => {
+    const isActive = r.lang === currentLang && r.currency === currentCurrency;
+    return `<button class="onboarding-lang-flag${isActive ? ' active' : ''}" onclick="chooseRegionInline('${r.code}')" title="${r.label}">${r.flag}</button>`;
+  }).join('');
 }
 
-function chooseLangOnboarding(code){
-  localStorage.setItem(LANG_KEY, code);
-  document.documentElement.classList.remove('needs-lang-choice');
-  // Depois de escolhida a língua, segue para a escolha de nicho, se ainda não tiver sido feita.
-  if(localStorage.getItem(NICHE_KEY) === null){
-    document.documentElement.classList.add('needs-niche-choice');
-    renderNicheOnboardingList();
-  } else {
-    initApp();
-  }
+function chooseRegionInline(regionCode){
+  const region = REGION_OPTIONS.find(r => r.code === regionCode);
+  if(!region) return;
+  localStorage.setItem(LANG_KEY, region.lang);
+  localStorage.setItem(CURRENCY_KEY, region.currency);
+  renderOnboardingLangRow();
+  renderNicheOnboardingList();
 }
 
-if(document.documentElement.classList.contains('needs-lang-choice')){
-  renderLangOnboardingList();
-} else if(document.documentElement.classList.contains('needs-niche-choice')){
+if(document.documentElement.classList.contains('needs-niche-choice')){
+  renderOnboardingLangRow();
   renderNicheOnboardingList();
 }
 
@@ -7601,12 +7785,10 @@ function initApp(){
   });
 }
 
-// Só arranca a app de imediato se a pessoa já tiver escolhido língua e nicho antes
-// (ou seja, não está a ver nenhum dos ecrãs de boas-vindas neste preciso momento).
-// Caso contrário, é chooseLangOnboarding()/chooseNicheOnboarding() que tratam de
-// arrancar a app, assim que a pessoa tocar numa das opções.
-if(!document.documentElement.classList.contains('needs-lang-choice') &&
-   !document.documentElement.classList.contains('needs-niche-choice')){
+// Só arranca a app de imediato se a pessoa já tiver escolhido nicho antes (ou seja,
+// não está a ver o ecrã de boas-vindas neste preciso momento). Caso contrário, é
+// chooseNicheOnboarding() que trata de arrancar a app, assim que tocar numa opção.
+if(!document.documentElement.classList.contains('needs-niche-choice')){
   initApp();
 }
 
