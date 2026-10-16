@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v117-aniversarios';
+const CACHE_NAME = 'fichas-tosquia-v119-reverter-scope-drive';
 const FILES_TO_CACHE = [
   './',
   './index.html',

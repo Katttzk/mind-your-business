@@ -29,9 +29,13 @@
       if(accent) document.documentElement.style.setProperty('--mustard', accent);
     }
 
-    // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
-    // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
-    if(localStorage.getItem('mtb_niche') === null){
+    // Se a pessoa ainda nunca escolheu uma língua, mostra esse ecrã primeiro — antes
+    // até da escolha de nicho — evitando qualquer "flash" da app.
+    if(localStorage.getItem('mtb_lang') === null){
+      document.documentElement.classList.add('needs-lang-choice');
+    } else if(localStorage.getItem('mtb_niche') === null){
+      // Se a pessoa ainda nunca escolheu um nicho (primeira utilização), mostra o
+      // ecrã de boas-vindas antes de tudo o resto, evitando qualquer "flash" da app.
       document.documentElement.classList.add('needs-niche-choice');
     }
   } catch(e){}
@@ -230,16 +234,26 @@
   html[data-theme="patinhas"] .btn-primary{background:#7FB6D9;}
   *{box-sizing:border-box;}
 
-  /* Ecrã de boas-vindas — escolha do tipo de negócio na primeira utilização */
-  #niche-onboarding-screen{display:none;}
-  html.needs-niche-choice #niche-onboarding-screen{
+  /* Ecrã de boas-vindas — escolha de língua e do tipo de negócio na primeira utilização */
+  #niche-onboarding-screen, #lang-onboarding-screen{display:none;}
+  html.needs-niche-choice #niche-onboarding-screen,
+  html.needs-lang-choice #lang-onboarding-screen{
     display:flex;flex-direction:column;position:fixed;inset:0;z-index:1000;
     background:linear-gradient(160deg, var(--teal), var(--teal-dark));
     padding:40px 24px;overflow-y:auto;
   }
-  html.needs-niche-choice header,
-  html.needs-niche-choice .tab-bar,
-  html.needs-niche-choice .screen{display:none !important;}
+  html.needs-niche-choice header, html.needs-lang-choice header,
+  html.needs-niche-choice .tab-bar, html.needs-lang-choice .tab-bar,
+  html.needs-niche-choice .screen, html.needs-lang-choice .screen{display:none !important;}
+  html.needs-lang-choice #niche-onboarding-screen{display:none !important;}
+  .lang-choice-card{
+    display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.95);
+    border-radius:16px;padding:16px;margin-bottom:10px;text-align:left;
+    border:none;width:100%;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);
+  }
+  .lang-choice-card .flag{font-size:1.7rem;flex-shrink:0;}
+  .lang-choice-card .name{font-weight:700;color:var(--teal-dark);font-size:1rem;flex:1;text-align:left;}
+  .lang-choice-card .arrow{color:var(--teal);font-size:1.3rem;flex-shrink:0;}
   .onboarding-inner{max-width:420px;margin:auto;width:100%;text-align:center;}
   .onboarding-mark{width:4.2rem;height:4.2rem;display:block;margin:0 auto 6px;}
   .onboarding-inner h1{
@@ -943,6 +957,15 @@
 </head>
 <body>
 
+<div id="lang-onboarding-screen">
+  <div class="onboarding-inner">
+    <span style="font-size:2.6rem;display:block;margin-bottom:6px;">🌐</span>
+    <h1>Welcome! · Bem-vindo(a)!</h1>
+    <div class="sub">Choose your language · Escolhe a tua língua</div>
+    <div id="lang-onboarding-list"></div>
+  </div>
+</div>
+
 <div id="niche-onboarding-screen">
   <div class="onboarding-inner">
     <svg class="onboarding-mark" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -956,10 +979,10 @@
         <circle cx="274" cy="188" r="7.2"/>
       </g>
     </svg>
-    <h1>Bem-vindo(a)!</h1>
-    <div class="sub">Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.</div>
+    <h1 id="niche-onboarding-title">Bem-vindo(a)!</h1>
+    <div class="sub" id="niche-onboarding-sub">Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.</div>
     <div id="niche-onboarding-list"></div>
-    <div class="onboarding-footnote">Não te preocupes — podes sempre mudar isto mais tarde em ⚙️ Definições → Tipo de negócio.</div>
+    <div class="onboarding-footnote" id="niche-onboarding-footnote">Não te preocupes — podes sempre mudar isto mais tarde em ⚙️ Definições → Tipo de negócio.</div>
   </div>
 </div>
 
@@ -989,13 +1012,13 @@
       </div>
       <button class="settings-gear-btn" onclick="openSettingsModal()" title="Definições de aparência">⚙️</button>
     </div>
-    <p style="margin-top:6px;" id="app-subtitle">As tuas fichas de cliente, sempre disponíveis — mesmo sem internet</p>
+    <p style="margin-top:6px;" id="app-subtitle">Cuida do teu negócio.</p>
   </div>
 </header>
 
 <!-- BARRA DE SEPARADORES -->
 <div class="tab-bar" id="tab-bar">
-  <button class="tab-btn active" id="tab-agenda" onclick="showTab('agenda')">Agenda<span id="agenda-tab-badge" class="tab-badge" style="display:none;"></span></button>
+  <button class="tab-btn active" id="tab-agenda" onclick="showTab('agenda')"><span id="tab-agenda-label">Agenda</span><span id="agenda-tab-badge" class="tab-badge" style="display:none;"></span></button>
   <button class="tab-btn" id="tab-clientes" onclick="showTab('list')">Clientes</button>
   <button class="tab-btn" id="tab-business" onclick="showTab('business')">Negócio</button>
   <button class="tab-btn" id="tab-pricing" onclick="showTab('pricing')">Preços</button>
@@ -5657,6 +5680,115 @@ function resetBranding(){
 
 // ---------- Temas de aparência ----------
 // ---------- Nicho de negócio (Grooming, Estética, ...) ----------
+const LANG_KEY = 'mtb_lang';
+const LANG_OPTIONS = [
+  { code: 'pt', label: 'Português', flag: '🇵🇹' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'zh', label: '中文', flag: '🇨🇳' },
+  { code: 'it', label: 'Italiano', flag: '🇮🇹' }
+];
+
+// Dicionário de traduções — cobre o essencial da interface fixa da app (separadores,
+// menu de Definições, ecrãs de boas-vindas). O vocabulário próprio de cada nicho
+// (campos da ficha, exemplos, mensagens) continua por traduzir numa fase seguinte —
+// é um projeto grande à parte, dada a quantidade de texto envolvida.
+const TRANSLATIONS = {
+  en: {
+    tabAgenda: 'Calendar', tabClientes: 'Clients', tabNegocio: 'Business', tabPrecos: 'Prices', tabStock: 'Stock',
+    slogan: 'Take care of your business.',
+    settingsTitle: 'Settings', menuNicho: 'Business type', menuCustomFields: 'Customize fields',
+    menuCustomFieldsSub: 'Adapt field names to your business', menuThemes: '🎨 Themes',
+    menuReminder: 'Confirmation message', menuReminderSub: 'Customize the text sent via WhatsApp',
+    menuBirthday: 'Birthday message', menuBirthdaySub: 'Customize the birthday greeting sent via WhatsApp',
+    menuBackup: 'Backup', menuBackupSub: 'Export / import data between devices',
+    menuDriveSync: 'Google Drive sync', menuLanguage: '🌐 Language',
+    onbWelcome: 'Welcome!', onbSub: 'What type of business is this app for? This adapts fields, examples and vocabulary to your line of work.',
+    onbFootnote: "Don't worry — you can always change this later in ⚙️ Settings → Business type."
+  },
+  es: {
+    tabAgenda: 'Agenda', tabClientes: 'Clientes', tabNegocio: 'Negocio', tabPrecos: 'Precios', tabStock: 'Stock',
+    slogan: 'Cuida de tu negocio.',
+    settingsTitle: 'Ajustes', menuNicho: 'Tipo de negocio', menuCustomFields: 'Personalizar campos',
+    menuCustomFieldsSub: 'Adapta los nombres de los campos a tu negocio', menuThemes: '🎨 Temas',
+    menuReminder: 'Mensaje de confirmación', menuReminderSub: 'Personaliza el texto enviado por WhatsApp',
+    menuBirthday: 'Mensaje de cumpleaños', menuBirthdaySub: 'Personaliza el saludo de cumpleaños enviado por WhatsApp',
+    menuBackup: 'Copia de seguridad', menuBackupSub: 'Exportar / importar datos entre dispositivos',
+    menuDriveSync: 'Sincronización con Google Drive', menuLanguage: '🌐 Idioma',
+    onbWelcome: '¡Bienvenido(a)!', onbSub: '¿Para qué tipo de negocio es esta aplicación? Esto adapta los campos, ejemplos y vocabulario a tu actividad.',
+    onbFootnote: 'No te preocupes — siempre puedes cambiar esto más tarde en ⚙️ Ajustes → Tipo de negocio.'
+  },
+  de: {
+    tabAgenda: 'Kalender', tabClientes: 'Kunden', tabNegocio: 'Geschäft', tabPrecos: 'Preise', tabStock: 'Lager',
+    slogan: 'Kümmere dich um dein Geschäft.',
+    settingsTitle: 'Einstellungen', menuNicho: 'Geschäftsart', menuCustomFields: 'Felder anpassen',
+    menuCustomFieldsSub: 'Feldnamen an dein Geschäft anpassen', menuThemes: '🎨 Designs',
+    menuReminder: 'Bestätigungsnachricht', menuReminderSub: 'Passe den per WhatsApp gesendeten Text an',
+    menuBirthday: 'Geburtstagsnachricht', menuBirthdaySub: 'Passe die per WhatsApp gesendete Geburtstagsnachricht an',
+    menuBackup: 'Sicherung', menuBackupSub: 'Daten zwischen Geräten exportieren/importieren',
+    menuDriveSync: 'Google Drive-Synchronisierung', menuLanguage: '🌐 Sprache',
+    onbWelcome: 'Willkommen!', onbSub: 'Für welche Art von Geschäft ist diese App? Das passt Felder, Beispiele und Begriffe an deine Branche an.',
+    onbFootnote: 'Keine Sorge — du kannst das später jederzeit in ⚙️ Einstellungen → Geschäftsart ändern.'
+  },
+  zh: {
+    tabAgenda: '日程', tabClientes: '客户', tabNegocio: '业务', tabPrecos: '价格', tabStock: '库存',
+    slogan: '用心经营你的事业。',
+    settingsTitle: '设置', menuNicho: '业务类型', menuCustomFields: '自定义字段',
+    menuCustomFieldsSub: '根据你的业务调整字段名称', menuThemes: '🎨 主题',
+    menuReminder: '确认消息', menuReminderSub: '自定义通过 WhatsApp 发送的文本',
+    menuBirthday: '生日消息', menuBirthdaySub: '自定义通过 WhatsApp 发送的生日祝福',
+    menuBackup: '备份', menuBackupSub: '在设备之间导出/导入数据',
+    menuDriveSync: 'Google Drive 同步', menuLanguage: '🌐 语言',
+    onbWelcome: '欢迎！', onbSub: '这个应用是用于哪种类型的业务？这会调整字段、示例和用语以符合你的行业。',
+    onbFootnote: '别担心——你随时可以稍后在 ⚙️ 设置 → 业务类型 中更改。'
+  },
+  it: {
+    tabAgenda: 'Agenda', tabClientes: 'Clienti', tabNegocio: 'Attività', tabPrecos: 'Prezzi', tabStock: 'Magazzino',
+    slogan: 'Prenditi cura della tua attività.',
+    settingsTitle: 'Impostazioni', menuNicho: 'Tipo di attività', menuCustomFields: 'Personalizza campi',
+    menuCustomFieldsSub: 'Adatta i nomi dei campi alla tua attività', menuThemes: '🎨 Temi',
+    menuReminder: 'Messaggio di conferma', menuReminderSub: 'Personalizza il testo inviato tramite WhatsApp',
+    menuBirthday: 'Messaggio di compleanno', menuBirthdaySub: 'Personalizza gli auguri inviati tramite WhatsApp',
+    menuBackup: 'Backup', menuBackupSub: 'Esporta / importa dati tra dispositivi',
+    menuDriveSync: 'Sincronizzazione Google Drive', menuLanguage: '🌐 Lingua',
+    onbWelcome: 'Benvenuto/a!', onbSub: 'Per che tipo di attività è questa app? Questo adatta campi, esempi e vocabolario al tuo settore.',
+    onbFootnote: 'Non preoccuparti — puoi sempre cambiarlo più tardi in ⚙️ Impostazioni → Tipo di attività.'
+  }
+};
+
+function getCurrentLang(){
+  return localStorage.getItem(LANG_KEY) || 'pt';
+}
+
+function chooseLanguageFromSettings(code){
+  localStorage.setItem(LANG_KEY, code);
+  applyLanguage();
+  settingsView = 'menu';
+  renderSettingsModal();
+}
+
+// t('chave', 'texto em português') — devolve a tradução se a língua atual não for
+// português e existir uma entrada para essa chave; caso contrário devolve sempre
+// o texto em português passado como valor por defeito.
+function t(key, fallback){
+  const lang = getCurrentLang();
+  if(lang === 'pt') return fallback;
+  const dict = TRANSLATIONS[lang];
+  return (dict && dict[key]) || fallback;
+}
+
+function applyLanguage(){
+  const setText = (id, text) => { const el = document.getElementById(id); if(el) el.textContent = text; };
+  setText('tab-agenda-label', t('tabAgenda', 'Agenda'));
+  setText('tab-clientes', t('tabClientes', 'Clientes'));
+  setText('tab-business', t('tabNegocio', 'Negócio'));
+  setText('tab-pricing', t('tabPrecos', 'Preços'));
+  setText('tab-stock', t('tabStock', 'Stock'));
+  const subtitleEl = document.getElementById('app-subtitle');
+  if(subtitleEl) subtitleEl.textContent = t('slogan', getCurrentNiche().subtitle);
+}
+
 const NICHE_KEY = 'mtb_niche';
 
 const NICHE_OPTIONS = [
@@ -5674,7 +5806,7 @@ const NICHE_OPTIONS = [
     fallbackClientName: 'o seu animal',
     unitLabel: 'animal',
     unitLabelCap: 'Animal',
-    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    subtitle: 'Cuida do teu negócio.',
     sectionAnimal: 'Dados do animal',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: Toby',
@@ -5751,7 +5883,7 @@ const NICHE_OPTIONS = [
     fallbackClientName: 'o(a) seu/sua cliente',
     unitLabel: 'cliente',
     unitLabelCap: 'Cliente',
-    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    subtitle: 'Cuida do teu negócio.',
     sectionAnimal: 'Dados do cliente',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: Mariana Silva',
@@ -5842,7 +5974,7 @@ const NICHE_OPTIONS = [
     fallbackClientName: 'o(a) seu/sua utente',
     unitLabel: 'utente',
     unitLabelCap: 'Utente',
-    subtitle: 'As tuas fichas de utente, sempre disponíveis — mesmo sem internet',
+    subtitle: 'Cuida do teu negócio.',
     sectionAnimal: 'Dados do utente',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: António Ferreira',
@@ -5925,7 +6057,7 @@ const NICHE_OPTIONS = [
     fallbackClientName: 'o(a) seu/sua cliente',
     unitLabel: 'cliente',
     unitLabelCap: 'Cliente',
-    subtitle: 'As tuas fichas de cliente, sempre disponíveis — mesmo sem internet',
+    subtitle: 'Cuida do teu negócio.',
     sectionAnimal: 'Dados do cliente',
     labelNome: 'Nome',
     nomePlaceholder: 'Ex: Nome do cliente',
@@ -6202,7 +6334,26 @@ function renderSettingsModal(){
   const overlay = document.getElementById('settings-overlay');
   if(!overlay) return;
 
-  if(settingsView === 'reminder'){
+  if(settingsView === 'language'){
+    const currentLangCode = getCurrentLang();
+    overlay.innerHTML = `
+      <div class="appt-picker-panel">
+        <div class="appt-picker-header">
+          <button class="btn-ghost" style="padding:6px 4px;" onclick="settingsView='menu';renderSettingsModal();">‹ ${t('settingsTitle','Definições')}</button>
+          <button class="icon-btn" onclick="closeSettingsModal()">✕</button>
+        </div>
+        <h3 style="margin-top:10px;">🌐 Idioma / Language</h3>
+        <div class="hint" style="margin:6px 0 14px;">Isto traduz os separadores, o menu de Definições e os ecrãs de boas-vindas. Os campos próprios de cada ficha continuam em português, por agora.</div>
+        ${LANG_OPTIONS.map(l => `
+          <button class="lang-choice-card" onclick="chooseLanguageFromSettings('${l.code}')" style="${l.code === currentLangCode ? 'border:2px solid var(--teal);' : ''}">
+            <span class="flag">${l.flag}</span>
+            <span class="name">${l.label}</span>
+            ${l.code === currentLangCode ? '<span class="arrow">✓</span>' : ''}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  } else if(settingsView === 'reminder'){
     const template = getReminderTemplate();
     const isCustom = localStorage.getItem(nicheKey('mtb_reminder_template')) !== null;
     overlay.innerHTML = `
@@ -6453,8 +6604,16 @@ function renderSettingsModal(){
           <div class="settings-menu-row" onclick="settingsView='niche';renderSettingsModal();">
             <div class="settings-menu-icon">${getCurrentNiche().appEmoji}</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">Tipo de negócio</div>
+              <div class="settings-menu-title">${t('menuNicho','Tipo de negócio')}</div>
               <div class="settings-menu-sub">${escapeHtml(getCurrentNiche().label)}</div>
+            </div>
+            <span class="settings-menu-arrow">›</span>
+          </div>
+          <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='language';renderSettingsModal();">
+            <div class="settings-menu-icon">🌐</div>
+            <div class="settings-menu-info">
+              <div class="settings-menu-title">${t('menuLanguage','🌐 Idioma')}</div>
+              <div class="settings-menu-sub">${(LANG_OPTIONS.find(l => l.code === getCurrentLang()) || LANG_OPTIONS[0]).label}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
@@ -6462,8 +6621,8 @@ function renderSettingsModal(){
             <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='customfields';renderSettingsModal();">
               <div class="settings-menu-icon">📝</div>
               <div class="settings-menu-info">
-                <div class="settings-menu-title">Personalizar campos</div>
-                <div class="settings-menu-sub">Adapta os nomes dos campos ao teu negócio</div>
+                <div class="settings-menu-title">${t('menuCustomFields','Personalizar campos')}</div>
+                <div class="settings-menu-sub">${t('menuCustomFieldsSub','Adapta os nomes dos campos ao teu negócio')}</div>
               </div>
               <span class="settings-menu-arrow">›</span>
             </div>
@@ -6471,7 +6630,7 @@ function renderSettingsModal(){
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='themes';renderSettingsModal();">
             <div class="theme-swatches">${currentThemeSwatches.map(c => `<span class="swatch" style="background:${c};"></span>`).join('')}</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">🎨 Temas</div>
+              <div class="settings-menu-title">${t('menuThemes','🎨 Temas')}</div>
               <div class="settings-menu-sub">${escapeHtml(currentTheme.label)}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
@@ -6479,31 +6638,31 @@ function renderSettingsModal(){
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='reminder';renderSettingsModal();">
             <div class="settings-menu-icon">💬</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">Mensagem de confirmação</div>
-              <div class="settings-menu-sub">Personaliza o texto enviado por WhatsApp</div>
+              <div class="settings-menu-title">${t('menuReminder','Mensagem de confirmação')}</div>
+              <div class="settings-menu-sub">${t('menuReminderSub','Personaliza o texto enviado por WhatsApp')}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='birthday';renderSettingsModal();">
             <div class="settings-menu-icon">🎂</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">Mensagem de aniversário</div>
-              <div class="settings-menu-sub">Personaliza os parabéns enviados por WhatsApp</div>
+              <div class="settings-menu-title">${t('menuBirthday','Mensagem de aniversário')}</div>
+              <div class="settings-menu-sub">${t('menuBirthdaySub','Personaliza os parabéns enviados por WhatsApp')}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='backup';renderSettingsModal();">
             <div class="settings-menu-icon">💾</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">Cópia de segurança</div>
-              <div class="settings-menu-sub">Exportar / importar dados entre dispositivos</div>
+              <div class="settings-menu-title">${t('menuBackup','Cópia de segurança')}</div>
+              <div class="settings-menu-sub">${t('menuBackupSub','Exportar / importar dados entre dispositivos')}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
           </div>
           <div class="settings-menu-row" style="margin-top:8px;" onclick="settingsView='drivesync';renderSettingsModal();">
             <div class="settings-menu-icon">🔄</div>
             <div class="settings-menu-info">
-              <div class="settings-menu-title">Sincronização Google Drive</div>
+              <div class="settings-menu-title">${t('menuDriveSync','Sincronização Google Drive')}</div>
               <div class="settings-menu-sub">${lastSyncError ? '🟠 Erro: ' + escapeHtml(lastSyncError) : (driveSyncEnabled ? '🟢 Ligado — a atualizar a cada 5s' : 'Desligado')}</div>
             </div>
             <span class="settings-menu-arrow">›</span>
@@ -6660,7 +6819,7 @@ async function handleImportFile(event){
 // ---------- Sincronização Google Drive (multi-dispositivo) ----------
 // PASSO OBRIGATÓRIO: substitui pelo Client ID OAuth criado na Google Cloud Console
 const GOOGLE_CLIENT_ID = '695642606391-adoe63hlatn4tgr35v0kce3phf8in0bg.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 function DRIVE_FOLDER_NAME(){ return nicheKey('MindYourBusiness-Sync'); }
 const SYNC_INTERVAL_MS = 5000;
@@ -7368,6 +7527,10 @@ history.replaceState({ mtbNav: true }, '');
 function renderNicheOnboardingList(){
   const listEl = document.getElementById('niche-onboarding-list');
   if(!listEl) return;
+  const setText = (id, text) => { const el = document.getElementById(id); if(el) el.textContent = text; };
+  setText('niche-onboarding-title', t('onbWelcome', 'Bem-vindo(a)!'));
+  setText('niche-onboarding-sub', t('onbSub', 'Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.'));
+  setText('niche-onboarding-footnote', t('onbFootnote', 'Não te preocupes — podes sempre mudar isto mais tarde em ⚙️ Definições → Tipo de negócio.'));
   const descriptions = {
     grooming: 'Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.',
     estetica: 'Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.',
@@ -7392,13 +7555,40 @@ function chooseNicheOnboarding(id){
   initApp();
 }
 
-if(document.documentElement.classList.contains('needs-niche-choice')){
+function renderLangOnboardingList(){
+  const listEl = document.getElementById('lang-onboarding-list');
+  if(!listEl) return;
+  listEl.innerHTML = LANG_OPTIONS.map(l => `
+    <button class="lang-choice-card" onclick="chooseLangOnboarding('${l.code}')">
+      <span class="flag">${l.flag}</span>
+      <span class="name">${l.label}</span>
+      <span class="arrow">›</span>
+    </button>
+  `).join('');
+}
+
+function chooseLangOnboarding(code){
+  localStorage.setItem(LANG_KEY, code);
+  document.documentElement.classList.remove('needs-lang-choice');
+  // Depois de escolhida a língua, segue para a escolha de nicho, se ainda não tiver sido feita.
+  if(localStorage.getItem(NICHE_KEY) === null){
+    document.documentElement.classList.add('needs-niche-choice');
+    renderNicheOnboardingList();
+  } else {
+    initApp();
+  }
+}
+
+if(document.documentElement.classList.contains('needs-lang-choice')){
+  renderLangOnboardingList();
+} else if(document.documentElement.classList.contains('needs-niche-choice')){
   renderNicheOnboardingList();
 }
 
 // ---------- Arranque ----------
 function initApp(){
   applyNicheUI();
+  applyLanguage();
   openDB().then(() => {
     renderAgendaBody();
     clients = [];
@@ -7411,11 +7601,12 @@ function initApp(){
   });
 }
 
-// Só arranca a app de imediato se a pessoa já tiver escolhido um nicho antes
-// (ou seja, não está a ver o ecrã de boas-vindas neste preciso momento).
-// Caso contrário, é chooseNicheOnboarding() que trata de arrancar a app,
-// assim que a pessoa tocar numa das opções.
-if(!document.documentElement.classList.contains('needs-niche-choice')){
+// Só arranca a app de imediato se a pessoa já tiver escolhido língua e nicho antes
+// (ou seja, não está a ver nenhum dos ecrãs de boas-vindas neste preciso momento).
+// Caso contrário, é chooseLangOnboarding()/chooseNicheOnboarding() que tratam de
+// arrancar a app, assim que a pessoa tocar numa das opções.
+if(!document.documentElement.classList.contains('needs-lang-choice') &&
+   !document.documentElement.classList.contains('needs-niche-choice')){
   initApp();
 }
 
