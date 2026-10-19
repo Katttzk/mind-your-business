@@ -2433,7 +2433,7 @@ async function getAllPayments(){
   const payments = [];
   clients.forEach(c => {
     (c.pagamentos || []).forEach(p => {
-      payments.push({ ...p, clientName: c.nome || 'Sem nome' });
+      payments.push({ ...p, clientName: c.nome || 'Sem nome', clientId: c.id });
     });
   });
   return payments;
@@ -2515,6 +2515,27 @@ function showMoreRevenuePayments(){
   renderRevenueBreakdown();
 }
 
+async function deletePaymentFromRevenueList(clientId, paymentId){
+  if(!confirm('Eliminar este registo de pagamento? Útil para corrigir enganos ou cobranças duplicadas.')) return;
+  const clients = await getAllClients();
+  const client = clients.find(c => c.id === clientId);
+  if(!client){
+    alert('Não foi possível encontrar a ficha deste cliente.');
+    return;
+  }
+  client.pagamentos = (client.pagamentos || []).filter(p => p.id !== paymentId);
+  recordTombstone('pagamento_item', paymentId);
+  await putClient(client);
+
+  if(currentClient && currentClient.id === clientId){
+    currentClient = client;
+    renderPayments();
+  }
+
+  renderRevenue();
+  renderOverview();
+}
+
 function renderRevenueBreakdown(){
   const breakdownEl = document.getElementById('revenue-breakdown');
   const sorted = revenueSortedCache;
@@ -2547,6 +2568,7 @@ function renderRevenueBreakdown(){
           <div class="p-value">${formatCurrency(p.valor)}</div>
           <div class="p-note">${escapeHtml(p.clientName)}${p.nota ? ' · ' + escapeHtml(p.nota) : ''}</div>
         </div>
+        <button class="p-del" onclick="deletePaymentFromRevenueList('${p.clientId}', '${p.id}')" title="Eliminar este pagamento">✕</button>
       </div>
     `).join('')}
     ${hasMore ? `<button class="btn-ghost" style="width:100%;border:1px solid var(--line);margin-top:6px;" onclick="showMoreRevenuePayments()">Ver mais (${sorted.length - revenueBreakdownVisibleCount} restantes)</button>` : ''}
