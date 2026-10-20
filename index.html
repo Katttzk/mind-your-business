@@ -7722,10 +7722,46 @@ function toggleGoogleCalendarSync(){
   calendarTokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
+// O token de acesso da Google costuma durar cerca de 1 hora. Esta função tenta
+// renová-lo sozinha, sem incomodar a pessoa (usa a sessão Google já existente no
+// telemóvel) — é isto que falta para a sincronização (Drive e Google Calendar)
+// continuar a funcionar sozinha ao longo do dia, sem ser preciso voltar a ligar
+// manualmente cada vez que o token expira a meio de uma sessão longa.
+function silentlyRefreshDriveToken(){
+  return new Promise((resolve, reject) => {
+    if(typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2){
+      reject(new Error('Biblioteca de autenticação da Google ainda não está disponível.'));
+      return;
+    }
+    const scope = gcalSyncEnabled ? (DRIVE_SCOPE + ' ' + CALENDAR_SCOPE) : DRIVE_SCOPE;
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: scope,
+      callback: (response) => {
+        if(response.error){ reject(new Error(response.error)); return; }
+        driveAccessToken = response.access_token;
+        resolve(response.access_token);
+      }
+    });
+    client.requestAccessToken({ prompt: '' });
+  });
+}
+
 async function driveFetch(url, options){
   options = options || {};
   options.headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + driveAccessToken });
-  const res = await fetch(url, options);
+  let res = await fetch(url, options);
+
+  if(res.status === 401){
+    try {
+      await silentlyRefreshDriveToken();
+      options.headers = Object.assign({}, options.headers, { Authorization: 'Bearer ' + driveAccessToken });
+      res = await fetch(url, options);
+    } catch(refreshErr){
+      console.warn('Não foi possível renovar automaticamente a sessão do Google:', refreshErr);
+    }
+  }
+
   if(res.status === 401){
     driveSyncEnabled = false;
     if(driveSyncTimer) clearInterval(driveSyncTimer);

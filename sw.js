@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v127-eliminar-pagamento-negocio';
+const CACHE_NAME = 'fichas-tosquia-v128-renovar-token-auto';
 const FILES_TO_CACHE = [
   './',
   './index.html',
