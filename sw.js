@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fichas-tosquia-v128-renovar-token-auto';
+const CACHE_NAME = 'fichas-tosquia-v129-traducao-completa';
 const FILES_TO_CACHE = [
   './',
   './index.html',

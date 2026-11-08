@@ -1134,13 +1134,13 @@
       <label>Categoria (opcional)</label>
       <select id="expense-categoria">
         <option value="">Selecionar...</option>
-        <option>Consumíveis</option>
-        <option>Renda</option>
-        <option>Água</option>
-        <option>Luz</option>
-        <option>Internet / Telefone</option>
-        <option>Equipamento</option>
-        <option>Outro</option>
+        <option value="Consumíveis">Consumíveis</option>
+        <option value="Renda">Renda</option>
+        <option value="Água">Água</option>
+        <option value="Luz">Luz</option>
+        <option value="Internet / Telefone">Internet / Telefone</option>
+        <option value="Equipamento">Equipamento</option>
+        <option value="Outro">Outro</option>
       </select>
       <button class="btn-secondary" style="width:100%;margin-top:10px;" onclick="addExpenseUI()">+ Adicionar despesa</button>
 
@@ -1265,12 +1265,12 @@
       <label>Recorrência de marcação</label>
       <select id="f-recorrencia">
         <option value="">Selecionar...</option>
-        <option>Semanal</option>
-        <option>Quinzenal</option>
-        <option>Mensal</option>
-        <option>6 em 6 semanas</option>
-        <option>2 em 2 meses</option>
-        <option>Sem regularidade</option>
+        <option value="Semanal">Semanal</option>
+        <option value="Quinzenal">Quinzenal</option>
+        <option value="Mensal">Mensal</option>
+        <option value="6 em 6 semanas">6 em 6 semanas</option>
+        <option value="2 em 2 meses">2 em 2 meses</option>
+        <option value="Sem regularidade">Sem regularidade</option>
       </select>
       <label id="label-pedidos">Pedidos habituais</label>
       <textarea id="f-pedidos" placeholder="Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas..."></textarea>
@@ -1808,8 +1808,8 @@ async function renderPriceEditorModal(){
       </div>
 
       <label style="margin-top:10px;">Serviço</label>
-      <select id="price-servico" onchange="document.getElementById('price-servico-custom').style.display = this.value==='Outro' ? 'block' : 'none';">
-        ${pc.servicos.map(s => `<option value="${s}" ${existing && existing.servico===s ? 'selected' : ''}>${s}</option>`).join('')}
+      <select id="price-servico" onchange="document.getElementById('price-servico-custom').style.display = this.value==='__other__' ? 'block' : 'none';">
+        ${pc.servicos.map((s, i) => { const isOther = i === pc.servicos.length - 1; return `<option value="${isOther ? '__other__' : s}" ${((existing && existing.servico===s) || (isOther && servicoIsCustom)) ? 'selected' : ''}>${s}</option>`; }).join('')}
       </select>
       <input type="text" id="price-servico-custom" placeholder="Nome do serviço" style="margin-top:8px;display:${servicoIsCustom ? 'block' : 'none'};" value="${servicoIsCustom ? escapeHtml(existing.servico) : ''}">
 
@@ -1831,7 +1831,7 @@ async function renderPriceEditorModal(){
       <label>${pc.racaLabel}</label>
       <input type="text" id="price-raca" placeholder="${pc.racaPlaceholder}" value="${existing ? escapeHtml(existing.raca || '') : ''}">
 
-      <label>Preço (€)</label>
+      <label>${tf('priceLabel', 'Preço ({1})', getCurrencySymbol())}</label>
       <input type="number" id="price-valor" step="0.01" min="0" placeholder="0,00" value="${existing ? existing.preco : ''}">
 
       <button class="btn-primary" style="width:100%;margin-top:14px;" onclick="savePriceEntry()">${existing ? 'Guardar alterações' : 'Adicionar preço'}</button>
@@ -1847,9 +1847,10 @@ function closePriceEditor(){
 }
 
 async function savePriceEntry(){
-  const servicoSelect = document.getElementById('price-servico').value;
+  const servicoEl = document.getElementById('price-servico');
+  const servicoSelect = servicoEl.value;
   const servicoCustom = document.getElementById('price-servico-custom').value.trim();
-  const servico = servicoSelect === 'Outro' ? (servicoCustom || 'Outro') : servicoSelect;
+  const servico = servicoSelect === '__other__' ? (servicoCustom || servicoEl.options[servicoEl.options.length - 1].textContent) : servicoSelect;
   const porte = document.getElementById('price-porte').value;
   const pelo = document.getElementById('price-pelo').value;
   const raca = document.getElementById('price-raca').value.trim();
@@ -2025,7 +2026,7 @@ async function renderStockEditorModal(){
         </div>
       </div>
 
-      <label>Valor a somar ao serviço, se incluído (€)</label>
+      <label>${tf('stockAddValueLabel', 'Valor a somar ao serviço, se incluído ({1})', getCurrencySymbol())}</label>
       <input type="number" id="stock-preco" step="0.01" min="0" placeholder="0,00" value="${existing && existing.preco != null ? existing.preco : ''}">
       <div class="hint" style="margin-top:4px;">Este é o valor que pode ser somado ao pagamento quando usares este artigo numa marcação — podes sempre optar por não somar, caso já esteja incluído no preço do serviço.</div>
 
@@ -2293,25 +2294,25 @@ async function renderOverview(){
     let icon, text;
     if(margin < 0){
       icon = '🔴';
-      text = `Estás a ter <strong>prejuízo</strong> este mês: as despesas (${formatCurrency(totalExpenses)}) ultrapassam a receita (${formatCurrency(totalRevenue)}). Vale a pena rever os preços ou reduzir custos o quanto antes.`;
+      text = tf('advLoss', 'Estás a ter <strong>prejuízo</strong> este mês: as despesas ({1}) ultrapassam a receita ({2}). Vale a pena rever os preços ou reduzir custos o quanto antes.', formatCurrency(totalExpenses), formatCurrency(totalRevenue));
     } else if(margin < 15){
       icon = '🟠';
-      text = `A tua margem de lucro está <strong>baixa</strong> (${margin.toFixed(1)}%). Para um negócio de grooming, o saudável costuma andar entre 20% e 35%. Considera rever os teus preços.`;
+      text = tf('advLowMargin', 'A tua margem de lucro está <strong>baixa</strong> ({1}%). Para um negócio como o teu, o saudável costuma andar entre 20% e 35%. Considera rever os teus preços.', margin.toFixed(1));
     } else if(margin < 30){
       icon = '🟡';
-      text = `Margem <strong>razoável</strong> (${margin.toFixed(1)}%), mas ainda há espaço para melhorar. Vale a pena rever periodicamente os preços à medida que os custos sobem.`;
+      text = tf('advFairMargin', 'Margem <strong>razoável</strong> ({1}%), mas ainda há espaço para melhorar. Vale a pena rever periodicamente os preços à medida que os custos sobem.', margin.toFixed(1));
     } else {
       icon = '🟢';
-      text = `Margem <strong>saudável</strong> (${margin.toFixed(1)}%)! O teu negócio está a gerar um bom lucro face às despesas.`;
+      text = tf('advHealthyMargin', 'Margem <strong>saudável</strong> ({1}%)! O teu negócio está a gerar um bom lucro face às despesas.', margin.toFixed(1));
     }
 
     let priceText = '';
     if(costPerService != null){
-      priceText = `Com base nas despesas deste mês, cada ${getCurrentNiche().unitLabel} precisa de render pelo menos <strong>${formatCurrency(costPerService)}</strong> só para cobrires os custos (ponto de equilíbrio). Para uma margem de lucro saudável de 25%, o preço mínimo recomendado por ${getCurrentNiche().unitLabel} é <strong>${formatCurrency(suggestedMinPrice)}</strong>.`;
+      priceText = tf('advBreakEven', 'Com base nas despesas deste mês, cada {1} precisa de render pelo menos <strong>{2}</strong> só para cobrires os custos (ponto de equilíbrio). Para uma margem de lucro saudável de 25%, o preço mínimo recomendado por {1} é <strong>{3}</strong>.', getCurrentNiche().unitLabel, formatCurrency(costPerService), formatCurrency(suggestedMinPrice));
       if(avgTicket != null){
         priceText += avgTicket < suggestedMinPrice
-          ? ` O teu ticket médio atual (${formatCurrency(avgTicket)}) está abaixo deste valor — pode valer a pena rever a tabela de preços.`
-          : ` O teu ticket médio atual (${formatCurrency(avgTicket)}) já está acima deste valor. 👍`;
+          ? tf('advTicketBelow', ' O teu ticket médio atual ({1}) está abaixo deste valor — pode valer a pena rever a tabela de preços.', formatCurrency(avgTicket))
+          : tf('advTicketAbove', ' O teu ticket médio atual ({1}) já está acima deste valor. 👍', formatCurrency(avgTicket));
       }
     }
 
@@ -2378,7 +2379,7 @@ async function renderPerAnimalCost(){
   const unit = getCurrentNiche().unitLabel;
 
   if(totalServices === 0){
-    boxEl.innerHTML = `<div class="hint">Ainda não há pagamentos suficientes nos últimos ${PERANIMAL_MONTHS_WINDOW} meses para calcular uma média fiável.</div>`;
+    boxEl.innerHTML = `<div class="hint">${tf('puNotEnough', 'Ainda não há pagamentos suficientes nos últimos {1} meses para calcular uma média fiável.', PERANIMAL_MONTHS_WINDOW)}</div>`;
     statsEl.innerHTML = '';
     adviceEl.innerHTML = '';
     return;
@@ -2393,7 +2394,7 @@ async function renderPerAnimalCost(){
     <div class="payment-highlight" style="background:${boxBg};border-color:${boxBorder};">
       <div class="label" style="color:${textColor};">Custo médio por ${unit}</div>
       <div class="value" style="color:${textColor};">${costPerAnimal != null ? formatCurrency(costPerAnimal) : '—'}</div>
-      <div class="date" style="color:${textColor};">Média dos últimos ${monthsWithData} mês${monthsWithData===1?'':'es'} com dados</div>
+      <div class="date" style="color:${textColor};">${monthsWithData === 1 ? t('puAvgOne', 'Média do último mês com dados') : tf('puAvgMany', 'Média dos últimos {1} meses com dados', monthsWithData)}</div>
     </div>
   `;
 
@@ -2408,16 +2409,16 @@ async function renderPerAnimalCost(){
   if(profitPerAnimal == null){
     adviceHtml = `<div class="advice-line">💡 Regista mais pagamentos e despesas para veres aqui uma média mais fiável.</div>`;
   } else if(profitPerAnimal < 0){
-    adviceHtml = `<div class="advice-line">🔴 Em média, cada ${unit} está a <strong>custar mais do que rende</strong> (${formatCurrency(Math.abs(profitPerAnimal))} de prejuízo por ${unit}). É um sinal forte para reveres os preços.</div>`;
+    adviceHtml = `<div class="advice-line">${tf('puAdvLoss', '🔴 Em média, cada {1} está a <strong>custar mais do que rende</strong> ({2} de prejuízo por {1}). É um sinal forte para reveres os preços.', unit, formatCurrency(Math.abs(profitPerAnimal)))}</div>`;
   } else {
     const targetProfit = costPerAnimal * 0.25;
     const suggestedPrice = costPerAnimal + targetProfit;
     if(profitPerAnimal < targetProfit){
       adviceHtml = `
-        <div class="advice-line">🟠 O lucro médio por ${unit} (${formatCurrency(profitPerAnimal)}) está abaixo do recomendado. Para uma margem saudável de 25%, o preço médio por ${unit} devia rondar <strong>${formatCurrency(suggestedPrice)}</strong> (atualmente é ${formatCurrency(revenuePerAnimal)}).</div>
+        <div class="advice-line">${tf('puAdvLow', '🟠 O lucro médio por {1} ({2}) está abaixo do recomendado. Para uma margem saudável de 25%, o preço médio por {1} devia rondar <strong>{3}</strong> (atualmente é {4}).', unit, formatCurrency(profitPerAnimal), formatCurrency(suggestedPrice), formatCurrency(revenuePerAnimal))}</div>
       `;
     } else {
-      adviceHtml = `<div class="advice-line">🟢 O lucro médio por ${unit} (${formatCurrency(profitPerAnimal)}) está numa margem saudável face aos custos.</div>`;
+      adviceHtml = `<div class="advice-line">${tf('puAdvHealthy', '🟢 O lucro médio por {1} ({2}) está numa margem saudável face aos custos.', unit, formatCurrency(profitPerAnimal))}</div>`;
     }
   }
   adviceEl.innerHTML = `<div class="advice-box">${adviceHtml}</div>`;
@@ -2607,7 +2608,7 @@ async function renderGroomerExistingList(){
   const groomers = await getAllGroomers();
   const label = getCurrentNiche().labelGroomer;
   if(groomers.length === 0){
-    listEl.innerHTML = `<div class="hint">Ainda não há ${label.toLowerCase()}s criados.</div>`;
+    listEl.innerHTML = `<div class="hint">${t('noGroomersYet', 'Ainda não adicionaste ninguém.')}</div>`;
     return;
   }
   listEl.innerHTML = groomers.map(g => `
@@ -2622,7 +2623,7 @@ async function renderGroomerExistingList(){
 async function addGroomer(){
   const nome = document.getElementById('new-groomer-nome').value.trim();
   if(!nome){
-    alert(`Indica o nome ${getCurrentNiche().labelGroomerArticle || 'do'} ${getCurrentNiche().labelGroomer.toLowerCase()}.`);
+    alert(tf('alertGroomerName', 'Indica o nome do(a) {1l}.', getCurrentNiche().labelGroomer));
     return;
   }
   await putGroomer({ id: generateId('g'), nome, cor: selectedNewGroomerColor });
@@ -2632,8 +2633,8 @@ async function addGroomer(){
 }
 
 async function deleteGroomer(id){
-  const label = getCurrentNiche().labelGroomer.toLowerCase();
-  if(!confirm(`Eliminar este ${label}? Os clientes que o tinham associado ficam sem ${label}.`)) return;
+  const label = getCurrentNiche().labelGroomer;
+  if(!confirm(tf('confirmDeleteGroomer', 'Eliminar este(a) {1l}? Os clientes que o tinham associado ficam sem {1l}.', label))) return;
   await deleteGroomerDB(id);
   await loadGroomerOptions(currentClient ? currentClient.groomerId : '');
   await renderGroomerExistingList();
@@ -2643,7 +2644,7 @@ async function loadGroomerOptions(selectedId){
   const select = document.getElementById('f-groomer');
   if(!select) return;
   const groomers = await getAllGroomers();
-  select.innerHTML = `<option value="">Sem ${getCurrentNiche().labelGroomer.toLowerCase()} definido</option>` +
+  select.innerHTML = `<option value="">${tf('noGroomerSet', 'Sem {1l} definido', getCurrentNiche().labelGroomer)}</option>` +
     groomers.map(g => `<option value="${g.id}">${escapeHtml(g.nome)}</option>`).join('');
   select.value = selectedId || '';
 }
@@ -3329,7 +3330,7 @@ async function openAnamneseModal(){
         <button class="icon-btn" onclick="closeAnamneseModal()">✕</button>
       </div>
       <div class="anamnese-doc">
-        <h2>${getCurrentNiche().unitLabelCap === 'Animal' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
+        <h2>${getCurrentNiche().id === 'grooming' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
         <div class="doc-sub">Data: ${todayLabel}</div>
 
         <h4>${getCurrentNiche().sectionAnimal}</h4>
@@ -3525,7 +3526,7 @@ function viewAnamnese(id){
         <button class="icon-btn" onclick="closeAnamneseModal()">✕</button>
       </div>
       <div class="anamnese-doc">
-        <h2>${getCurrentNiche().unitLabelCap === 'Animal' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
+        <h2>${getCurrentNiche().id === 'grooming' ? 'Ficha de Anamnese — Grooming' : 'Ficha de Consentimento'}</h2>
         <div class="doc-sub">Data: ${formatDate(record.date)}</div>
 
         <h4>${getCurrentNiche().sectionAnimal}</h4>
@@ -3954,6 +3955,9 @@ function resetBirthdayTemplateFromForm(){
 }
 
 function getNomeComArtigo(client, nome){
+  const lang = getCurrentLang();
+  if(lang === 'en') return nome;          // inglês: "for Toby" / "Toby's birthday"
+  if(lang === 'es') return `de ${nome}`;  // espanhol: "la cita de Toby"
   const sexo = client && client.sexo;
   if(sexo === 'm') return `do ${nome}`;
   if(sexo === 'f') return `da ${nome}`;
@@ -4103,7 +4107,7 @@ function buildPickerMonthGridHtml(items, refDate){
   const firstOfMonth = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
   const gridStart = startOfWeek(firstOfMonth);
   const todayIso = isoDate(new Date());
-  const weekdayLabels = ['seg','ter','qua','qui','sex','sáb','dom'];
+  const weekdayLabels = getWeekdayShortLabelsMonFirst();
 
   let html = `<div class="month-weekdays">${weekdayLabels.map(w=>`<div>${w}</div>`).join('')}</div><div class="month-days">`;
   for(let i=0;i<42;i++){
@@ -4346,12 +4350,16 @@ function calculateAgeFromBirthdate(isoDateStr){
   if(now.getDate() < birth.getDate()) months--;
   if(months < 0){ years--; months += 12; }
 
+  const w = {
+    month: t('ageMonth', 'mês'), months: t('ageMonths', 'meses'),
+    year: t('ageYear', 'ano'), years: t('ageYears', 'anos'), and: t('ageAnd', 'e')
+  };
   if(years <= 0){
-    if(months <= 0) return 'Recém-nascido(a)';
-    return months === 1 ? '1 mês' : `${months} meses`;
+    if(months <= 0) return t('ageNewborn', 'Recém-nascido(a)');
+    return `${months} ${months === 1 ? w.month : w.months}`;
   }
-  if(months === 0) return years === 1 ? '1 ano' : `${years} anos`;
-  return `${years} ano${years === 1 ? '' : 's'} e ${months} ${months === 1 ? 'mês' : 'meses'}`;
+  if(months === 0) return `${years} ${years === 1 ? w.year : w.years}`;
+  return `${years} ${years === 1 ? w.year : w.years} ${w.and} ${months} ${months === 1 ? w.month : w.months}`;
 }
 
 // Sempre que a data de nascimento é preenchida/alterada, calcula e preenche a idade
@@ -4854,7 +4862,7 @@ async function renderMonthHtml(items, refDate){
   const todayIso = isoDate(new Date());
   const selectedIso = isoDate(agendaDate);
 
-  const weekdayLabels = ['seg','ter','qua','qui','sex','sáb','dom'];
+  const weekdayLabels = getWeekdayShortLabelsMonFirst();
   let html = `<div class="month-grid">
     <div class="month-weekdays">${weekdayLabels.map(w=>`<div>${w}</div>`).join('')}</div>
     <div class="month-days">`;
@@ -5835,6 +5843,17 @@ function getCurrentLang(){
 
 // Locale usado para escrever datas por extenso (nomes dos dias/meses) — segue a
 // língua escolhida, não fica preso ao português como antes.
+// Abreviaturas dos dias da semana (segunda a domingo) na língua escolhida
+function getWeekdayShortLabelsMonFirst(){
+  const loc = getDateLocale();
+  const out = [];
+  for(let i = 0; i < 7; i++){
+    // 1 de janeiro de 2024 foi uma segunda-feira
+    out.push(new Date(2024, 0, 1 + i).toLocaleDateString(loc, { weekday: 'short' }).replace('.', ''));
+  }
+  return out;
+}
+
 function getDateLocale(){
   const lang = getCurrentLang();
   if(lang === 'en') return 'en-US';
@@ -5862,11 +5881,73 @@ function chooseCurrencyFromSettings(code){
 // t('chave', 'texto em português') — devolve a tradução se a língua atual não for
 // português e existir uma entrada para essa chave; caso contrário devolve sempre
 // o texto em português passado como valor por defeito.
+// Textos com valores ({1}, {2}...; {1l} = valor em minúsculas) — usados em frases compostas
+// que o tradutor automático não consegue partir (ex: conselhos com partes a negrito).
+const TF_TEXT = {
+  en: {
+    groomerUsual: 'Usual {1l}', groomerNameLabel: 'Name of the {1l}', groomerAdd: '+ Add {1l}', noGroomerSet: 'No {1l} set',
+    alertGroomerName: "Enter the {1l}'s name.",
+    confirmDeleteGroomer: 'Delete this {1l}? Clients linked to them will be left without a {1l}.',
+    noGroomersYet: 'Nobody added yet.',
+    priceLabel: 'Price ({1})', stockAddValueLabel: 'Amount to add to the service, if included ({1})',
+    advLoss: "You are running a <strong>loss</strong> this month: expenses ({1}) exceed revenue ({2}). It's worth reviewing your prices or cutting costs as soon as possible.",
+    advLowMargin: 'Your profit margin is <strong>low</strong> ({1}%). For a business like yours, a healthy margin is usually between 20% and 35%. Consider reviewing your prices.',
+    advFairMargin: "<strong>Fair</strong> margin ({1}%), but there's still room to improve. It's worth reviewing prices regularly as costs rise.",
+    advHealthyMargin: '<strong>Healthy</strong> margin ({1}%)! Your business is generating a good profit relative to expenses.',
+    advBreakEven: "Based on this month's expenses, each {1} needs to earn at least <strong>{2}</strong> just to cover costs (break-even). For a healthy 25% profit margin, the recommended minimum price per {1} is <strong>{3}</strong>.",
+    advTicketBelow: ' Your current average ticket ({1}) is below this amount — it may be worth reviewing your price list.',
+    advTicketAbove: ' Your current average ticket ({1}) is already above this amount. 👍',
+    puNotEnough: "There aren't enough payments in the last {1} months yet to calculate a reliable average.",
+    puAvgOne: 'Average of the last month with data', puAvgMany: 'Average of the last {1} months with data',
+    puAdvLoss: "🔴 On average, each {1} is <strong>costing more than it earns</strong> ({2} loss per {1}). That's a strong sign to review your prices.",
+    puAdvLow: '🟠 Average profit per {1} ({2}) is below the recommended level. For a healthy 25% margin, the average price per {1} should be around <strong>{3}</strong> (currently {4}).',
+    puAdvHealthy: '🟢 Average profit per {1} ({2}) is at a healthy margin relative to costs.',
+    ageNewborn: 'Newborn', ageMonth: 'month', ageMonths: 'months', ageYear: 'year', ageYears: 'years', ageAnd: 'and'
+  },
+  es: {
+    groomerUsual: '{1} habitual', groomerNameLabel: 'Nombre del/de la {1l}', groomerAdd: '+ Añadir {1l}', noGroomerSet: 'Sin {1l} definido',
+    alertGroomerName: 'Indica el nombre del/de la {1l}.',
+    confirmDeleteGroomer: '¿Eliminar este/a {1l}? Los clientes asociados quedarán sin {1l}.',
+    noGroomersYet: 'Todavía no has añadido a nadie.',
+    priceLabel: 'Precio ({1})', stockAddValueLabel: 'Importe a sumar al servicio, si se incluye ({1})',
+    advLoss: 'Estás teniendo <strong>pérdidas</strong> este mes: los gastos ({1}) superan los ingresos ({2}). Merece la pena revisar los precios o reducir costes cuanto antes.',
+    advLowMargin: 'Tu margen de beneficio es <strong>bajo</strong> ({1}%). Para un negocio como el tuyo, lo saludable suele estar entre el 20% y el 35%. Considera revisar tus precios.',
+    advFairMargin: 'Margen <strong>razonable</strong> ({1}%), pero aún hay margen de mejora. Conviene revisar los precios periódicamente a medida que suben los costes.',
+    advHealthyMargin: '¡Margen <strong>saludable</strong> ({1}%)! Tu negocio está generando un buen beneficio frente a los gastos.',
+    advBreakEven: 'Según los gastos de este mes, cada {1} necesita generar al menos <strong>{2}</strong> solo para cubrir costes (punto de equilibrio). Para un margen de beneficio saludable del 25%, el precio mínimo recomendado por {1} es <strong>{3}</strong>.',
+    advTicketBelow: ' Tu ticket medio actual ({1}) está por debajo de este valor: puede merecer la pena revisar la tabla de precios.',
+    advTicketAbove: ' Tu ticket medio actual ({1}) ya está por encima de este valor. 👍',
+    puNotEnough: 'Todavía no hay pagos suficientes en los últimos {1} meses para calcular una media fiable.',
+    puAvgOne: 'Media del último mes con datos', puAvgMany: 'Media de los últimos {1} meses con datos',
+    puAdvLoss: '🔴 De media, cada {1} está <strong>costando más de lo que rinde</strong> ({2} de pérdida por {1}). Es una señal fuerte para revisar los precios.',
+    puAdvLow: '🟠 El beneficio medio por {1} ({2}) está por debajo de lo recomendado. Para un margen saludable del 25%, el precio medio por {1} debería rondar <strong>{3}</strong> (actualmente es {4}).',
+    puAdvHealthy: '🟢 El beneficio medio por {1} ({2}) está en un margen saludable frente a los costes.',
+    ageNewborn: 'Recién nacido/a', ageMonth: 'mes', ageMonths: 'meses', ageYear: 'año', ageYears: 'años', ageAnd: 'y'
+  }
+};
+
 function t(key, fallback){
   const lang = getCurrentLang();
   if(lang === 'pt') return fallback;
   const dict = TRANSLATIONS[lang];
-  return (dict && dict[key]) || fallback;
+  const extra = TF_TEXT[lang];
+  return (dict && dict[key]) || (extra && extra[key]) || fallback;
+}
+
+function tf(key, fallback, ...args){
+  let out = t(key, fallback);
+  args.forEach((a, i) => {
+    out = out.split('{' + (i + 1) + 'l}').join(String(a).toLowerCase()).split('{' + (i + 1) + '}').join(String(a));
+  });
+  return out;
+}
+
+function getCurrencySymbol(){
+  const cur = getCurrentCurrency();
+  try {
+    const part = new Intl.NumberFormat(cur.locale, { style: 'currency', currency: cur.code }).formatToParts(0).find(x => x.type === 'currency');
+    return part ? part.value : cur.code;
+  } catch(e){ return cur.code; }
 }
 
 function applyLanguage(){
@@ -5882,6 +5963,7 @@ function applyLanguage(){
   setText('agenda-goto-today-btn', t('agendaGoToday', 'Ir para hoje'));
   const subtitleEl = document.getElementById('app-subtitle');
   if(subtitleEl) subtitleEl.textContent = t('slogan', getCurrentNiche().subtitle);
+  if(typeof i18nRefreshAll === 'function') i18nRefreshAll();
 }
 
 const NICHE_KEY = 'mtb_niche';
@@ -6837,12 +6919,12 @@ function applyNicheUI(){
   setText('label-comportamento', n.labelComportamento);
   setPlaceholder('f-comportamento', n.comportamentoPlaceholder);
   setText('label-pedidos', n.labelPedidos);
-  setText('label-groomer-habitual', n.labelGroomer + ' habitual');
-  setText('label-nome-groomer', 'Nome do(a) ' + n.labelGroomer.toLowerCase());
-  setText('btn-add-groomer', '+ Adicionar ' + n.labelGroomer.toLowerCase());
+  setText('label-groomer-habitual', tf('groomerUsual', '{1} habitual', n.labelGroomer));
+  setText('label-nome-groomer', tf('groomerNameLabel', 'Nome do(a) {1l}', n.labelGroomer));
+  setText('btn-add-groomer', tf('groomerAdd', '+ Adicionar {1l}', n.labelGroomer));
   const groomerSelect = document.getElementById('f-groomer');
   if(groomerSelect && groomerSelect.options.length > 0 && groomerSelect.options[0].value === ''){
-    groomerSelect.options[0].textContent = 'Sem ' + n.labelGroomer.toLowerCase() + ' definido';
+    groomerSelect.options[0].textContent = tf('noGroomerSet', 'Sem {1l} definido', n.labelGroomer);
   }
   setPlaceholder('f-pedidos', n.pedidosPlaceholder);
   setDisplay('field-medicacao-wrap', n.showMedicacao);
@@ -6864,7 +6946,7 @@ function applyNicheUI(){
   setDisplay('field-tutor-nome-wrap', n.showTutorNome);
 
   // Anamnese / consentimento
-  setText('anamnese-section-title', n.unitLabelCap === 'Animal' ? 'Ficha de anamnese' : 'Ficha de consentimento');
+  setText('anamnese-section-title', n.id === 'grooming' ? 'Ficha de anamnese' : 'Ficha de consentimento');
   setText('anamnese-section-hint', n.anamneseHint);
 
   // Histórico
@@ -7168,7 +7250,7 @@ function renderSettingsModal(){
         </div>
         <h3 style="margin-top:10px;">🔄 Sincronização Google Drive</h3>
         <div class="hint" style="margin:6px 0 12px;">
-          Liga este aparelho à tua conta Google Drive para os dados serem partilhados automaticamente com os teus outros aparelhos (atualiza a cada 5 segundos). Os dados deste nicho (${escapeHtml(getCurrentNiche().label)}) ficam guardados numa pasta própria chamada "${DRIVE_FOLDER_NAME()}" no teu Google Drive — cada nicho tem a sua pasta separada.
+          Liga este aparelho à tua conta Google Drive para os dados serem partilhados automaticamente com os teus outros aparelhos (atualiza a cada 5 segundos). Os dados ficam guardados numa área privada e escondida da app, na tua conta Google — não aparecem na vista normal do Drive. Cada nicho tem os seus dados separados.
         </div>
         <div id="drivesync-status" class="hint" style="margin-bottom:10px;font-weight:600;">
           ${driveSyncEnabled
@@ -7182,7 +7264,7 @@ function renderSettingsModal(){
           : `<button class="btn-secondary" style="width:100%;" onclick="connectGoogleDrive()">Ligar ao Google Drive</button>`
         }
         <div class="hint" style="margin-top:12px;">
-          📸 ${getCurrentNiche().photoSyncHint} — cada uma é guardada como ficheiro próprio no teu Drive, para não sobrecarregar cada atualização. Podem demorar um pouco mais a aparecer no outro aparelho da primeira vez.
+          📸 ${getCurrentNiche().photoSyncHint} <span>— cada uma é guardada como ficheiro próprio no teu Drive, para não sobrecarregar cada atualização. Podem demorar um pouco mais a aparecer no outro aparelho da primeira vez.</span>
         </div>
 
         <h3 style="margin-top:18px;">📅 Google Calendar (opcional)</h3>
@@ -8202,12 +8284,839 @@ function chooseRegionInline(regionCode){
   localStorage.setItem(CURRENCY_KEY, region.currency);
   renderOnboardingLangRow();
   renderNicheOnboardingList();
+  if(typeof i18nRefreshAll === 'function') i18nRefreshAll();
 }
 
 if(document.documentElement.classList.contains('needs-niche-choice')){
   renderOnboardingLangRow();
   renderNicheOnboardingList();
 }
+
+/*I18N_BEGIN*/
+// [português, inglês, espanhol]. "{}" no português = parte variável; no destino usa-se {1}, {2}...
+const I18N_ENTRIES = [
+// ===== Boas-vindas / cabeçalho =====
+[`Para que tipo de negócio é esta aplicação? Isto adapta os campos, exemplos e vocabulário ao teu tipo de trabalho.`,`What type of business is this app for? This adapts fields, examples and vocabulary to your line of work.`,`¿Para qué tipo de negocio es esta aplicación? Esto adapta los campos, ejemplos y vocabulario a tu actividad.`],
+[`Não te preocupes — podes sempre mudar isto mais tarde em ⚙️ Definições → Tipo de negócio.`,`Don't worry — you can always change this later in ⚙️ Settings → Business type.`,`No te preocupes — siempre puedes cambiar esto más tarde en ⚙️ Ajustes → Tipo de negocio.`],
+[`Cuida do teu negócio.`,`Take care of your business.`,`Cuida de tu negocio.`],
+[`Estética`,`Aesthetics`,`Estética`],
+[`💅 Estética`,`💅 Aesthetics`,`💅 Estética`],
+[`Saúde e Bem-Estar`,`Health & Wellness`,`Salud y Bienestar`],
+[`🩺 Saúde e Bem-Estar`,`🩺 Health & Wellness`,`🩺 Salud y Bienestar`],
+[`Outros Negócios`,`Other Businesses`,`Otros Negocios`],
+[`💼 Outros Negócios`,`💼 Other Businesses`,`💼 Otros Negocios`],
+[`Cães, gatos e outros animais — tosquias, banhos e cuidados de pelo.`,`Dogs, cats and other animals — grooming, baths and coat care.`,`Perros, gatos y otros animales: peluquería, baños y cuidado del pelo.`],
+[`Cabeleireiro, unhas, sobrancelhas, pestanas, pele e tratamentos de estética em geral.`,`Hairdressing, nails, eyebrows, lashes, skin and general aesthetic treatments.`,`Peluquería, uñas, cejas, pestañas, piel y tratamientos de estética en general.`],
+[`Enfermagem ao domicílio, osteopatia e outros cuidados de saúde a utentes.`,`Home nursing, osteopathy and other health care for patients.`,`Enfermería a domicilio, osteopatía y otros cuidados de salud para pacientes.`],
+[`Qualquer outro negócio de serviços — os nomes dos campos são totalmente personalizáveis.`,`Any other service business — field names are fully customizable.`,`Cualquier otro negocio de servicios: los nombres de los campos son totalmente personalizables.`],
+
+// ===== Lista de clientes =====
+[`Ainda não tens nenhuma ficha.`,`You don't have any client records yet.`,`Todavía no tienes ninguna ficha.`],
+[`Toca no botão + para criar a primeira.`,`Tap the + button to create the first one.`,`Toca el botón + para crear la primera.`],
+[`Procurar por nome, tutor ou telefone...`,`Search by name, owner or phone...`,`Buscar por nombre, dueño/a o teléfono...`],
+[`Sem nome`,`No name`,`Sin nombre`],
+[`Sem contacto`,`No contact`,`Sin contacto`],
+[`Sem contacto na ficha`,`No contact on file`,`Sin contacto en la ficha`],
+[`Atenção especial`,`Special attention`,`Atención especial`],
+[`🚫 Não apareceu`,`🚫 No-show`,`🚫 No se presentó`],
+[`{} 🚫 Não apareceu`,`{1} 🚫 No-show`,`{1} 🚫 No se presentó`],
+[`{} · 🚫 Não apareceu`,`{1} · 🚫 No-show`,`{1} · 🚫 No se presentó`],
+[`{} · Caução paga`,`{1} · Deposit paid`,`{1} · Señal pagada`],
+[`{} · Em atraso`,`{1} · Overdue`,`{1} · Vencido`],
+[`· Em atraso`,`· Overdue`,`· Vencido`],
+
+// ===== Agenda =====
+[`Dia`,`Day`,`Día`],
+[`Semana`,`Week`,`Semana`],
+[`Mês`,`Month`,`Mes`],
+[`Ir para hoje`,`Go to today`,`Ir a hoy`],
+[`Sem marcações neste dia.`,`No appointments on this day.`,`Sin citas este día.`],
+[`Ainda não há marcações neste dia.`,`No appointments on this day yet.`,`Todavía no hay citas este día.`],
+[`Toca num dia para veres os horários já ocupados`,`Tap a day to see the busy time slots`,`Toca un día para ver los horarios ya ocupados`],
+[`‹ Mudar de dia`,`‹ Change day`,`‹ Cambiar de día`],
+[`Horários já marcados neste dia:`,`Time slots already booked on this day:`,`Horarios ya reservados este día:`],
+[`Início`,`Start`,`Inicio`],
+[`Fim`,`End`,`Fin`],
+[`🔔 Lembrete automático 24h antes (aparece pronto a enviar na Agenda)`,`🔔 Automatic reminder 24h before (appears ready to send in the Calendar)`,`🔔 Recordatorio automático 24 h antes (aparece listo para enviar en la Agenda)`],
+[`🔔 Lembrete automático 24h antes`,`🔔 Automatic reminder 24h before`,`🔔 Recordatorio automático 24 h antes`],
+[`Confirmar marcação`,`Confirm appointment`,`Confirmar cita`],
+[`Notas do dia`,`Day notes`,`Notas del día`],
+[`Ex: fechado à tarde, entrega de material...`,`E.g. closed in the afternoon, supplies delivery...`,`Ej: cerrado por la tarde, entrega de material...`],
+[`{}–{} · por confirmar`,`{1}–{2} · to be confirmed`,`{1}–{2} · por confirmar`],
+[`Evento do Google Calendar · por confirmar`,`Google Calendar event · to be confirmed`,`Evento de Google Calendar · por confirmar`],
+[`Evento Google`,`Google event`,`Evento de Google`],
+[`(sem título)`,`(untitled)`,`(sin título)`],
+[`+ Criar novo cliente "{}"`,`+ Create new client "{1}"`,`+ Crear nuevo cliente "{1}"`],
+[`Podes completar os restantes dados depois`,`You can fill in the remaining details later`,`Puedes completar el resto de los datos más tarde`],
+[`📅 Confirmar evento do Google`,`📅 Confirm Google event`,`📅 Confirmar evento de Google`],
+[`Não é uma marcação — dispensar`,`Not an appointment — dismiss`,`No es una cita: descartar`],
+[`Dispensar`,`Dismiss`,`Descartar`],
+[`Editar marcação — {}`,`Edit appointment — {1}`,`Editar cita — {1}`],
+[`Guardar alterações`,`Save changes`,`Guardar cambios`],
+[`Data`,`Date`,`Fecha`],
+[`Confirmar`,`Confirm`,`Confirmar`],
+[`Concluída`,`Completed`,`Completada`],
+[`(concluída)`,`(completed)`,`(completada)`],
+[`{} (concluída)`,`{1} (completed)`,`{1} (completada)`],
+[`{} — 🟢 Tem caução paga`,`{1} — 🟢 Deposit paid`,`{1} — 🟢 Tiene señal pagada`],
+[`{} (Google, por confirmar)`,`{1} (Google, to be confirmed)`,`{1} (Google, por confirmar)`],
+[`Confirmar / associar a cliente`,`Confirm / link to client`,`Confirmar / asociar a cliente`],
+[`Enviar lembrete`,`Send reminder`,`Enviar recordatorio`],
+[`🔔 Lembretes prontos a enviar`,`🔔 Reminders ready to send`,`🔔 Recordatorios listos para enviar`],
+[`Já enviei`,`Sent`,`Enviado`],
+[`🧾 Comprovativos por emitir`,`🧾 Receipts to issue`,`🧾 Comprobantes por emitir`],
+[`✓ Concluído`,`✓ Done`,`✓ Hecho`],
+[`Sem NIF na ficha`,`No tax ID on file`,`Sin NIF en la ficha`],
+[`{} às {}`,`{1} at {2}`,`{1} a las {2}`],
+[`{} · {} às {}`,`{1} · {2} at {3}`,`{1} · {2} a las {3}`],
+[`🎂 Aniversários de hoje ({})`,`🎂 Today's birthdays ({1})`,`🎂 Cumpleaños de hoy ({1})`],
+[`Enviar parabéns por WhatsApp`,`Send birthday wishes via WhatsApp`,`Enviar felicitaciones por WhatsApp`],
+[`Confirmar por WhatsApp`,`Confirm via WhatsApp`,`Confirmar por WhatsApp`],
+[`Marcar como paga`,`Mark as paid`,`Marcar como pagada`],
+[`Cliente não apareceu`,`Client did not show up`,`El cliente no se presentó`],
+[`Marcar como já enviado`,`Mark as sent`,`Marcar como enviado`],
+[`Marcar como emitido`,`Mark as issued`,`Marcar como emitido`],
+[`Abrir WhatsApp`,`Open WhatsApp`,`Abrir WhatsApp`],
+[`Abrir no GPS`,`Open in GPS`,`Abrir en el GPS`],
+[`Ligar`,`Call`,`Llamar`],
+[`Enviar email`,`Send email`,`Enviar correo`],
+[`Editar`,`Edit`,`Editar`],
+[`Eliminar`,`Delete`,`Eliminar`],
+[`Ver`,`View`,`Ver`],
+
+// ===== Ecrã de marcar como paga =====
+[`💰 Marcar como paga`,`💰 Mark as paid`,`💰 Marcar como pagada`],
+[`Ao confirmar, a marcação fica concluída e o valor é adicionado automaticamente aos pagamentos deste cliente (pagamentos, agenda e visão do negócio).`,`Once confirmed, the appointment is marked as completed and the amount is automatically added to this client's payments (payments, calendar and business overview).`,`Al confirmar, la cita queda completada y el importe se añade automáticamente a los pagos de este cliente (pagos, agenda y visión del negocio).`],
+[`Valor pago`,`Amount paid`,`Importe pagado`],
+[`Nota (opcional)`,`Note (optional)`,`Nota (opcional)`],
+[`🧾 Cliente quer comprovativo de pagamento (fatura)`,`🧾 Client wants a payment receipt (invoice)`,`🧾 El cliente quiere comprobante de pago (factura)`],
+[`🟢 É uma caução — a marcação não fica concluída, só fica assinalada a verde`,`🟢 This is a deposit — the appointment isn't completed, it's just highlighted in green`,`🟢 Es una señal: la cita no queda completada, solo se marca en verde`],
+[`A marcação continua por realizar na Agenda, mas fica destacada a verde para saberes que já tem sinal pago. Quando o serviço acontecer, volta a usar este botão para registares o valor final.`,`The appointment stays pending in the Calendar but is highlighted in green so you know a deposit has been paid. When the service takes place, use this button again to record the final amount.`,`La cita sigue pendiente en la Agenda, pero se destaca en verde para que sepas que ya tiene señal pagada. Cuando se realice el servicio, vuelve a usar este botón para registrar el importe final.`],
+[`Confirmar pagamento`,`Confirm payment`,`Confirmar pago`],
+
+// ===== Negócio (visão geral, receitas, despesas, compras) =====
+[`🏷️ Personalizar a aplicação`,`🏷️ Customize the app`,`🏷️ Personalizar la aplicación`],
+[`Coloca o logótipo e o nome do teu negócio para aparecerem no topo da aplicação, em vez do logótipo predefinido.`,`Add your logo and business name to show at the top of the app instead of the default logo.`,`Coloca el logotipo y el nombre de tu negocio para que aparezcan en la parte superior de la aplicación, en lugar del logotipo predeterminado.`],
+[`Escolher logótipo`,`Choose logo`,`Elegir logotipo`],
+[`Nome do negócio`,`Business name`,`Nombre del negocio`],
+[`Repor logótipo predefinido`,`Reset to default logo`,`Restablecer logotipo predeterminado`],
+[`📊 Visão geral do negócio`,`📊 Business overview`,`📊 Visión general del negocio`],
+[`📐 Custo médio por animal`,`📐 Average cost per pet`,`📐 Coste medio por mascota`],
+[`Baseado na média dos últimos meses com dados — ajuda a perceber, de forma estável, quanto cada animal custa realmente e se os teus preços atuais chegam.`,`Based on the average of the last few months with data — helps you understand, in a stable way, how much each pet really costs and whether your current prices cover it.`,`Basado en la media de los últimos meses con datos: ayuda a entender, de forma estable, cuánto cuesta realmente cada mascota y si tus precios actuales lo cubren.`],
+[`💰 Gestão de Receitas`,`💰 Revenue management`,`💰 Gestión de ingresos`],
+[`📉 Despesas`,`📉 Expenses`,`📉 Gastos`],
+[`Descrição`,`Description`,`Descripción`],
+[`Valor`,`Amount`,`Importe`],
+[`Data limite`,`Due date`,`Fecha límite`],
+[`Categoria (opcional)`,`Category (optional)`,`Categoría (opcional)`],
+[`Consumíveis`,`Supplies`,`Consumibles`],
+[`Renda`,`Rent`,`Alquiler`],
+[`Água`,`Water`,`Agua`],
+[`Luz`,`Electricity`,`Luz`],
+[`Internet / Telefone`,`Internet / Phone`,`Internet / Teléfono`],
+[`Equipamento`,`Equipment`,`Equipamiento`],
+[`Outro`,`Other`,`Otro`],
+[`+ Adicionar despesa`,`+ Add expense`,`+ Añadir gasto`],
+[`🛒 Lista de compras`,`🛒 Shopping list`,`🛒 Lista de la compra`],
+[`Regista aqui o material que vai sendo preciso repor. Risca quando comprares.`,`Note down here the supplies you need to restock. Cross them off when you buy them.`,`Anota aquí el material que vayas necesitando reponer. Táchalo cuando lo compres.`],
+[`Adicionar`,`Add`,`Añadir`],
+[`Limpar itens já comprados`,`Clear purchased items`,`Borrar artículos ya comprados`],
+[`Lista vazia. Adiciona o que for preciso comprar.`,`Empty list. Add whatever you need to buy.`,`Lista vacía. Añade lo que necesites comprar.`],
+[`Remover todos os itens já comprados da lista?`,`Remove all purchased items from the list?`,`¿Quitar de la lista todos los artículos ya comprados?`],
+[`Total de despesas do mês`,`Total expenses for the month`,`Total de gastos del mes`],
+[`Pago: {}`,`Paid: {1}`,`Pagado: {1}`],
+[`Por pagar: {}`,`To pay: {1}`,`Por pagar: {1}`],
+[`Marcar como por pagar`,`Mark as unpaid`,`Marcar como pendiente de pago`],
+[`Marcar como pago`,`Mark as paid`,`Marcar como pagado`],
+[`Sem despesas registadas neste mês.`,`No expenses recorded this month.`,`Sin gastos registrados este mes.`],
+[`Preenche a descrição, o valor e a data limite da despesa.`,`Fill in the expense description, amount and due date.`,`Rellena la descripción, el importe y la fecha límite del gasto.`],
+[`Eliminar esta despesa?`,`Delete this expense?`,`¿Eliminar este gasto?`],
+[`Lucro do mês`,`Monthly profit`,`Beneficio del mes`],
+[`Prejuízo do mês`,`Monthly loss`,`Pérdida del mes`],
+[`Margem de lucro:`,`Profit margin:`,`Margen de beneficio:`],
+[`Sem receita registada neste mês`,`No revenue recorded this month`,`Sin ingresos registrados este mes`],
+[`Receita do mês`,`Monthly revenue`,`Ingresos del mes`],
+[`Despesas do mês`,`Monthly expenses`,`Gastos del mes`],
+[`Serviços com pagamento registado`,`Services with recorded payment`,`Servicios con pago registrado`],
+[`Ticket médio por {}`,`Average ticket per {1}`,`Ticket medio por {1}`],
+[`Custo por {} (ponto de equilíbrio)`,`Cost per {1} (break-even)`,`Coste por {1} (punto de equilibrio)`],
+[`Média de marcações pagas / mês`,`Average paid appointments / month`,`Media de citas pagadas / mes`],
+[`Despesa média mensal`,`Average monthly expense`,`Gasto medio mensual`],
+[`Receita média por {}`,`Average revenue per {1}`,`Ingreso medio por {1}`],
+[`Lucro médio por {}`,`Average profit per {1}`,`Beneficio medio por {1}`],
+[`Custo médio por {}`,`Average cost per {1}`,`Coste medio por {1}`],
+[`💡 Regista mais pagamentos e despesas para veres aqui uma média mais fiável.`,`💡 Record more payments and expenses to see a more reliable average here.`,`💡 Registra más pagos y gastos para ver aquí una media más fiable.`],
+[`Total do dia`,`Total for the day`,`Total del día`],
+[`Total da semana`,`Total for the week`,`Total de la semana`],
+[`Total do mês`,`Total for the month`,`Total del mes`],
+[`Sem pagamentos registados neste período.`,`No payments recorded in this period.`,`Sin pagos registrados en este período.`],
+[`Ver pagamentos ({})`,`View payments ({1})`,`Ver pagos ({1})`],
+[`Ocultar pagamentos`,`Hide payments`,`Ocultar pagos`],
+[`Ver mais ({} restantes)`,`Show more ({1} remaining)`,`Ver más ({1} restantes)`],
+[`Eliminar este registo de pagamento? Útil para corrigir enganos ou cobranças duplicadas.`,`Delete this payment record? Useful for fixing mistakes or duplicate charges.`,`¿Eliminar este registro de pago? Útil para corregir errores o cobros duplicados.`],
+[`Eliminar este pagamento`,`Delete this payment`,`Eliminar este pago`],
+[`Não foi possível encontrar a ficha deste cliente.`,`Could not find this client's record.`,`No se pudo encontrar la ficha de este cliente.`],
+
+// ===== Preços =====
+[`+ Adicionar preço`,`+ Add price`,`+ Añadir precio`],
+[`🔍 Pesquisar artigo...`,`🔍 Search item...`,`🔍 Buscar artículo...`],
+[`🔍 Pesquisar serviço, raça ou tipo de pelo...`,`🔍 Search service, breed or coat type...`,`🔍 Buscar servicio, raza o tipo de pelo...`],
+[`Serviço`,`Service`,`Servicio`],
+[`Nome do serviço`,`Service name`,`Nombre del servicio`],
+[`✏️ Editar preço`,`✏️ Edit price`,`✏️ Editar precio`],
+[`+ Novo preço`,`+ New price`,`+ Nuevo precio`],
+[`Adicionar preço`,`Add price`,`Añadir precio`],
+[`Eliminar este preço`,`Delete this price`,`Eliminar este precio`],
+[`Eliminar este preço da tabela?`,`Delete this price from the table?`,`¿Eliminar este precio de la tabla?`],
+[`Indica o preço.`,`Enter the price.`,`Indica el precio.`],
+[`A tua tabela de preços está vazia.`,`Your price list is empty.`,`Tu tabla de precios está vacía.`],
+[`Toca em "+ Adicionar preço" para começares.`,`Tap "+ Add price" to get started.`,`Toca "+ Añadir precio" para empezar.`],
+[`Nenhum preço encontrado para "{}".`,`No prices found for "{1}".`,`No se encontró ningún precio para "{1}".`],
+[`Padrão`,`Default`,`Predeterminado`],
+
+// ===== Stock =====
+[`+ Adicionar artigo`,`+ Add item`,`+ Añadir artículo`],
+[`✏️ Editar artigo`,`✏️ Edit item`,`✏️ Editar artículo`],
+[`+ Novo artigo de stock`,`+ New stock item`,`+ Nuevo artículo de stock`],
+[`Adicionar artigo`,`Add item`,`Añadir artículo`],
+[`Nome do artigo`,`Item name`,`Nombre del artículo`],
+[`Ex: Champô hipoalergénico 500ml`,`E.g. Hypoallergenic shampoo 500ml`,`Ej: Champú hipoalergénico 500ml`],
+[`Quantidade em stock`,`Quantity in stock`,`Cantidad en stock`],
+[`Stock mínimo (opcional)`,`Minimum stock (optional)`,`Stock mínimo (opcional)`],
+[`Este é o valor que pode ser somado ao pagamento quando usares este artigo numa marcação — podes sempre optar por não somar, caso já esteja incluído no preço do serviço.`,`This is the amount that can be added to the payment when you use this item in an appointment — you can always choose not to add it if it's already included in the service price.`,`Este es el importe que se puede sumar al pago cuando uses este artículo en una cita; siempre puedes optar por no sumarlo si ya está incluido en el precio del servicio.`],
+[`Eliminar este artigo`,`Delete this item`,`Eliminar este artículo`],
+[`Eliminar este artigo do stock?`,`Delete this item from stock?`,`¿Eliminar este artículo del stock?`],
+[`Indica o nome do artigo.`,`Enter the item name.`,`Indica el nombre del artículo.`],
+[`Indica a quantidade em stock.`,`Enter the quantity in stock.`,`Indica la cantidad en stock.`],
+[`O teu stock está vazio.`,`Your stock is empty.`,`Tu stock está vacío.`],
+[`Toca em "+ Adicionar artigo" para começares.`,`Tap "+ Add item" to get started.`,`Toca "+ Añadir artículo" para empezar.`],
+[`Nenhum artigo encontrado para "{}".`,`No items found for "{1}".`,`No se encontró ningún artículo para "{1}".`],
+[`{}{} em stock`,`{1}{2} in stock`,`{1}{2} en stock`],
+[`{} ({} em stock)`,`{1} ({2} in stock)`,`{1} ({2} en stock)`],
+[`+ Produto do stock`,`+ Stock product`,`+ Producto del stock`],
+[`Artigo`,`Item`,`Artículo`],
+[`Somar o valor deste produto ao pagamento`,`Add this product's price to the payment`,`Sumar el valor de este producto al pago`],
+[`Desmarca se este produto já estiver incluído no preço do serviço — o stock é sempre deduzido de qualquer forma.`,`Untick if this product is already included in the service price — stock is always deducted either way.`,`Desmarca si este producto ya está incluido en el precio del servicio: el stock se descuenta siempre de todos modos.`],
+[`Ainda não tens artigos no stock. Vai ao separador Stock para adicionares alguns primeiro.`,`You don't have any items in stock yet. Go to the Stock tab to add some first.`,`Todavía no tienes artículos en stock. Ve a la pestaña Stock para añadir algunos primero.`],
+[`Indica uma quantidade válida.`,`Enter a valid quantity.`,`Indica una cantidad válida.`],
+[`Quantidade usada`,`Quantity used`,`Cantidad usada`],
+[`+ {} somado ao pagamento`,`+ {1} added to the payment`,`+ {1} sumado al pago`],
+[`Deduzido do stock, sem somar ao valor`,`Deducted from stock, not added to the amount`,`Descontado del stock, sin sumar al importe`],
+[`Nenhum produto adicionado a este pagamento.`,`No products added to this payment.`,`Ningún producto añadido a este pago.`],
+[`Eliminar este artigo`,`Delete this item`,`Eliminar este artículo`],
+
+// ===== Ficha do cliente =====
+[`← Voltar`,`← Back`,`← Volver`],
+[`Nova ficha`,`New record`,`Nueva ficha`],
+[`Fotografia principal`,`Main photo`,`Fotografía principal`],
+[`Escolher / tirar foto`,`Choose / take photo`,`Elegir / hacer foto`],
+[`Agenda`,`Appointments`,`Agenda`],
+[`+ Fazer marcação`,`+ Book appointment`,`+ Hacer una cita`],
+[`Escolhe primeiro o dia no calendário, depois a hora, com base nas marcações já existentes.`,`First pick the day on the calendar, then the time, based on existing appointments.`,`Elige primero el día en el calendario y después la hora, según las citas ya existentes.`],
+[`Mensagem de confirmação (podes editar antes de enviar)`,`Confirmation message (you can edit it before sending)`,`Mensaje de confirmación (puedes editarlo antes de enviar)`],
+[`Enviar confirmação da próxima marcação`,`Send confirmation for the next appointment`,`Enviar confirmación de la próxima cita`],
+[`Sem marcações futuras agendadas.`,`No future appointments scheduled.`,`Sin citas futuras programadas.`],
+[`Este cliente não tem nenhuma marcação futura agendada.`,`This client has no future appointments scheduled.`,`Este cliente no tiene ninguna cita futura programada.`],
+[`Este cliente não tem um contacto de telefone preenchido.`,`This client has no phone number filled in.`,`Este cliente no tiene un teléfono rellenado.`],
+[`Escolhe uma data para a marcação.`,`Choose a date for the appointment.`,`Elige una fecha para la cita.`],
+[`Preenche a data e a hora de início.`,`Fill in the date and start time.`,`Rellena la fecha y la hora de inicio.`],
+[`Ainda não há marcações para este cliente.`,`No appointments for this client yet.`,`Todavía no hay citas para este cliente.`],
+[`Cliente não encontrado.`,`Client not found.`,`Cliente no encontrado.`],
+[`Cor`,`Color`,`Color`],
+[`Gerir`,`Manage`,`Gestionar`],
+[`Dados do animal`,`Pet details`,`Datos de la mascota`],
+[`Nome`,`Name`,`Nombre`],
+[`Raça`,`Breed`,`Raza`],
+[`Idade`,`Age`,`Edad`],
+[`Sexo`,`Sex`,`Sexo`],
+[`Não especificado`,`Not specified`,`No especificado`],
+[`Macho`,`Male`,`Macho`],
+[`Fêmea`,`Female`,`Hembra`],
+[`Peso`,`Weight`,`Peso`],
+[`Data de nascimento`,`Date of birth`,`Fecha de nacimiento`],
+[`Se preencheres a data de nascimento, a Idade acima é calculada automaticamente. Se não souberes a data, podes continuar a escrever a idade à mão.`,`If you fill in the date of birth, the Age above is calculated automatically. If you don't know the date, you can still type the age by hand.`,`Si rellenas la fecha de nacimiento, la Edad de arriba se calcula automáticamente. Si no conoces la fecha, puedes seguir escribiendo la edad a mano.`],
+[`Recorrência de marcação`,`Booking frequency`,`Frecuencia de citas`],
+[`Selecionar...`,`Select...`,`Seleccionar...`],
+[`Semanal`,`Weekly`,`Semanal`],
+[`Quinzenal`,`Every 2 weeks`,`Quincenal`],
+[`Mensal`,`Monthly`,`Mensual`],
+[`6 em 6 semanas`,`Every 6 weeks`,`Cada 6 semanas`],
+[`2 em 2 meses`,`Every 2 months`,`Cada 2 meses`],
+[`Sem regularidade`,`No regular schedule`,`Sin regularidad`],
+[`Medicação habitual`,`Usual medication`,`Medicación habitual`],
+[`Observações`,`Observations`,`Observaciones`],
+[`Alergias, cuidados especiais, notas gerais...`,`Allergies, special care, general notes...`,`Alergias, cuidados especiales, notas generales...`],
+[`⚠️ Aviso importante`,`⚠️ Important warning`,`⚠️ Aviso importante`],
+[`⚠️ Este animal precisa de atenção especial`,`⚠️ This pet needs special attention`,`⚠️ Esta mascota necesita atención especial`],
+[`Marca isto se for relevante — a ficha deste animal passa a aparecer destacada a amarelo na lista de Clientes, com esta nota visível, para identificares logo à entrada.`,`Tick this if relevant — this pet's file will appear highlighted in yellow in the Clients list, with this note visible, so you can spot it right away.`,`Marca esto si es relevante: la ficha de esta mascota aparecerá destacada en amarillo en la lista de Clientes, con esta nota visible, para identificarla enseguida.`],
+[`Pagamentos`,`Payments`,`Pagos`],
+[`Último pagamento`,`Last payment`,`Último pago`],
+[`Total pago até hoje`,`Total paid to date`,`Total pagado hasta hoy`],
+[`Produtos do stock usados (opcional)`,`Stock products used (optional)`,`Productos de stock usados (opcional)`],
+[`+ Adicionar produto do stock`,`+ Add stock product`,`+ Añadir producto del stock`],
+[`Registar pagamento`,`Record payment`,`Registrar pago`],
+[`Ver registos de pagamento`,`View payment records`,`Ver registros de pago`],
+[`Ver registos de pagamento ({})`,`View payment records ({1})`,`Ver registros de pago ({1})`],
+[`Ocultar registos de pagamento`,`Hide payment records`,`Ocultar registros de pago`],
+[`Ainda não há pagamentos registados.`,`No payments recorded yet.`,`Todavía no hay pagos registrados.`],
+[`Indica o valor pago.`,`Enter the amount paid.`,`Indica el importe pagado.`],
+[`Eliminar este registo de pagamento?`,`Delete this payment record?`,`¿Eliminar este registro de pago?`],
+[`Tutor`,`Owner`,`Dueño/a`],
+[`Nome do tutor`,`Owner's name`,`Nombre del dueño/a`],
+[`Nome completo`,`Full name`,`Nombre completo`],
+[`Contacto (telefone)`,`Contact (phone)`,`Contacto (teléfono)`],
+[`Ex: nome@exemplo.com`,`E.g. name@example.com`,`Ej: nombre@ejemplo.com`],
+[`NIF`,`Tax ID (NIF)`,`NIF`],
+[`Morada`,`Address`,`Dirección`],
+[`Ex: Rua das Flores, 123, Lisboa`,`E.g. 123 Flower Street, London`,`Ej: Calle de las Flores, 123, Madrid`],
+[`Útil se fizeres deslocações a casa do cliente — o botão abre a morada diretamente na app de GPS/mapas do telemóvel.`,`Useful if you make home visits — the button opens the address directly in your phone's GPS/maps app.`,`Útil si haces desplazamientos a casa del cliente: el botón abre la dirección directamente en la app de GPS/mapas del móvil.`],
+[`O link do WhatsApp é gerado automaticamente a partir do contacto.`,`The WhatsApp link is generated automatically from the contact number.`,`El enlace de WhatsApp se genera automáticamente a partir del contacto.`],
+[`Ficha de anamnese`,`Anamnesis form`,`Ficha de anamnesis`],
+[`Ficha de consentimento`,`Consent form`,`Ficha de consentimiento`],
+[`Gera automaticamente uma ficha de anamnese com os dados do animal e do tutor, com declaração de saúde, autorização de uso de dados/fotografias e responsabilização do tutor — pronta para ser assinada no telemóvel ou tablet.`,`Automatically generates a health declaration form with the pet's and owner's details, health declaration, authorization to use data/photos and owner liability — ready to be signed on a phone or tablet.`,`Genera automáticamente una ficha de anamnesis con los datos de la mascota y del dueño/a, declaración de salud, autorización de uso de datos/fotografías y responsabilidad del dueño/a — lista para firmar en el móvil o tablet.`],
+[`+ Nova ficha de anamnese`,`+ New anamnesis form`,`+ Nueva ficha de anamnesis`],
+[`⚙️ Editar`,`⚙️ Edit`,`⚙️ Editar`],
+[`Personalizar declarações`,`Customize declarations`,`Personalizar declaraciones`],
+[`Ainda não há nenhuma ficha de anamnese assinada.`,`No signed anamnesis form yet.`,`Todavía no hay ninguna ficha de anamnesis firmada.`],
+[`Eliminar esta ficha de anamnese?`,`Delete this anamnesis form?`,`¿Eliminar esta ficha de anamnesis?`],
+[`Histórico de tosquias`,`Grooming history`,`Historial de peluquería`],
+[`Regista os detalhes de cada tosquia — lâminas usadas, comprimento geral, tipo de carinha, etc. — com ou sem fotografia.`,`Record the details of each groom — blades used, overall length, face style, etc. — with or without a photo.`,`Registra los detalles de cada sesión — cuchillas usadas, largo general, tipo de carita, etc. — con o sin fotografía.`],
+[`Nota`,`Note`,`Nota`],
+[`+ Adicionar fotos (opcional)`,`+ Add photos (optional)`,`+ Añadir fotos (opcional)`],
+[`Adicionar ao histórico`,`Add to history`,`Añadir al historial`],
+[`Ainda não há registos no histórico.`,`No history records yet.`,`Todavía no hay registros en el historial.`],
+[`Ver histórico mais antigo ({})`,`View older history ({1})`,`Ver historial más antiguo ({1})`],
+[`Escreve uma nota ou adiciona pelo menos uma fotografia antes de adicionar ao histórico.`,`Write a note or add at least one photo before adding to the history.`,`Escribe una nota o añade al menos una fotografía antes de añadir al historial.`],
+[`Registo de ocorrências / provas fotográficas`,`Incident log / photographic evidence`,`Registro de incidencias / pruebas fotográficas`],
+[`Usa esta secção para documentar situações como pele irritada, orelha inflamada ou nós no pelo — nota de texto, fotos, ou ambos, com data automática. Fica guardado como prova em caso de reclamação.`,`Use this section to document things like irritated skin, an inflamed ear or matted fur — a text note, photos, or both, with an automatic date. Kept as evidence in case of a complaint.`,`Usa esta sección para documentar situaciones como piel irritada, oreja inflamada o pelo apelmazado — nota de texto, fotos, o ambos, con fecha automática. Queda guardado como prueba en caso de reclamación.`],
+[`Observação`,`Observation`,`Observación`],
+[`+ Adicionar fotos`,`+ Add photos`,`+ Añadir fotos`],
+[`Guardar registo`,`Save record`,`Guardar registro`],
+[`Guardar ficha`,`Save record`,`Guardar ficha`],
+[`Ainda não há registos guardados.`,`No records saved yet.`,`Todavía no hay registros guardados.`],
+[`Escreve uma nota ou adiciona pelo menos uma fotografia para guardar o registo.`,`Write a note or add at least one photo to save the record.`,`Escribe una nota o añade al menos una fotografía para guardar el registro.`],
+[`Eliminar este registo e as respetivas fotografias?`,`Delete this record and its photos?`,`¿Eliminar este registro y sus fotografías?`],
+[`{} falta{} registada{}`,`{1} no-show{2} recorded`,`{1} falta{2} registrada{3}`],
+[`🚫 {} falta{}`,`🚫 {1} no-show{2}`,`🚫 {1} falta{2}`],
+[`{} pagamento{}`,`{1} payment{2}`,`{1} pago{2}`],
+[`Limpar registo de faltas`,`Clear no-show record`,`Borrar registro de ausencias`],
+[`(últimas: {}) — considera pedir caução para a próxima marcação.`,`(latest: {1}) — consider asking for a deposit for the next appointment.`,`(últimas: {1}) — considera pedir una señal para la próxima cita.`],
+[`Ex: Varfarina 5mg (1x/dia), Metformina 850mg (2x/dia)...`,`E.g. Warfarin 5mg (1x/day), Metformin 850mg (2x/day)...`,`Ej: Warfarina 5mg (1x/día), Metformina 850mg (2x/día)...`],
+
+// ===== Profissionais =====
+[`Cor`,`Color`,`Color`],
+[`Ainda não adicionaste ninguém.`,`Nobody added yet.`,`Todavía no has añadido a nadie.`],
+
+// ===== Anamnese (documento) =====
+[`Nova ficha de anamnese`,`New anamnesis form`,`Nueva ficha de anamnesis`],
+[`Ficha de Anamnese — Grooming`,`Anamnesis Form — Grooming`,`Ficha de Anamnesis — Peluquería`],
+[`Ficha de Consentimento`,`Consent Form`,`Ficha de Consentimiento`],
+[`Data: {}`,`Date: {1}`,`Fecha: {1}`],
+[`Declarações`,`Declarations`,`Declaraciones`],
+[`Precisas de ajustar estas declarações? Toca em "⚙️ Editar" na ficha de anamnese antes de criares uma nova.`,`Need to adjust these declarations? Tap "⚙️ Edit" on the anamnesis form before creating a new one.`,`¿Necesitas ajustar estas declaraciones? Toca "⚙️ Editar" en la ficha de anamnesis antes de crear una nueva.`],
+[`Assinatura do tutor`,`Owner's signature`,`Firma del dueño/a`],
+[`Assina aqui com o dedo`,`Sign here with your finger`,`Firma aquí con el dedo`],
+[`Limpar assinatura`,`Clear signature`,`Borrar firma`],
+[`Guardar anamnese assinada`,`Save signed form`,`Guardar ficha firmada`],
+[`Anamnese de {}`,`Anamnesis form — {1}`,`Anamnesis de {1}`],
+[`🖨️ Imprimir / Guardar PDF`,`🖨️ Print / Save PDF`,`🖨️ Imprimir / Guardar PDF`],
+[`✅ Confirmação de saúde, autorização de uso de dados/fotografias e responsabilização do tutor, confirmadas e assinadas.`,`✅ Health confirmation, authorization to use data/photos and owner liability — confirmed and signed.`,`✅ Confirmación de salud, autorización de uso de datos/fotografías y responsabilidad del dueño/a, confirmadas y firmadas.`],
+[`⚙️ Personalizar declarações`,`⚙️ Customize declarations`,`⚙️ Personalizar declaraciones`],
+[`Estas são as afirmações que o tutor tem de confirmar (com uma checkbox) antes de assinar a anamnese. Podes editar o texto, remover as que não precisas, ou adicionar novos pontos próprios do teu negócio.`,`These are the statements the owner must confirm (with a checkbox) before signing the form. You can edit the text, remove those you don't need, or add new points specific to your business.`,`Estas son las afirmaciones que el dueño/a debe confirmar (con una casilla) antes de firmar la ficha. Puedes editar el texto, quitar las que no necesites o añadir puntos propios de tu negocio.`],
+[`+ Adicionar ponto`,`+ Add point`,`+ Añadir punto`],
+[`Guardar modelo`,`Save template`,`Guardar plantilla`],
+[`Repor os 3 pontos predefinidos`,`Reset to the 3 default points`,`Restablecer los 3 puntos predeterminados`],
+[`Sem pontos definidos. Adiciona pelo menos um.`,`No points defined. Add at least one.`,`Sin puntos definidos. Añade al menos uno.`],
+[`Adiciona pelo menos um ponto antes de guardar.`,`Add at least one point before saving.`,`Añade al menos un punto antes de guardar.`],
+[`Repor as declarações predefinidas para o teu tipo de negócio? Isto substitui os pontos personalizados que tenhas feito.`,`Reset the default declarations for your business type? This replaces any custom points you've made.`,`¿Restablecer las declaraciones predeterminadas para tu tipo de negocio? Esto sustituye los puntos personalizados que hayas hecho.`],
+[`É necessário confirmar todas as declarações antes de guardar.`,`You must confirm all declarations before saving.`,`Es necesario confirmar todas las declaraciones antes de guardar.`],
+[`É necessária a assinatura do tutor.`,`The owner's signature is required.`,`Se necesita la firma del dueño/a.`],
+[`Confirmo que o meu animal se encontra atualmente saudável, sem doenças contagiosas, parasitas visíveis ou lesões não comunicadas à equipa, e apto para o serviço de grooming.`,`I confirm that my pet is currently healthy, free of contagious diseases, visible parasites or injuries not disclosed to the team, and fit for the grooming service.`,`Confirmo que mi mascota se encuentra actualmente sana, sin enfermedades contagiosas, parásitos visibles o lesiones no comunicadas al equipo, y apta para el servicio de peluquería.`],
+[`Autorizo a recolha e utilização de dados e fotografias do meu animal para fins de registo interno, histórico de tosquias e comunicação relacionada com o serviço.`,`I authorize the collection and use of my pet's data and photographs for internal record-keeping, grooming history and communication related to the service.`,`Autorizo la recogida y el uso de datos y fotografías de mi mascota para fines de registro interno, historial de peluquería y comunicación relacionada con el servicio.`],
+[`Assumo a responsabilidade pelo bem-estar do meu animal, isentando o estabelecimento de responsabilidade por reações comportamentais, condições de saúde pré-existentes não comunicadas, ou situações imprevisíveis durante o serviço.`,`I take responsibility for my pet's wellbeing, releasing the establishment from liability for behavioral reactions, pre-existing health conditions not disclosed, or unforeseeable situations during the service.`,`Asumo la responsabilidad por el bienestar de mi mascota, eximiendo al establecimiento de responsabilidad por reacciones de comportamiento, condiciones de salud preexistentes no comunicadas, o situaciones imprevisibles durante el servicio.`],
+
+// ===== Ficha: mensagens e alertas =====
+[`Indica o nome do animal`,`Enter the pet's name`,`Indica el nombre de la mascota`],
+[`Ficha de {} criada! Já podes adicionar marcações, histórico, ocorrências e anamnese/consentimento aqui mesmo, mais abaixo nesta ficha.`,`{1}'s record created! You can now add appointments, history, incidents and anamnesis/consent right here, further down this record.`,`¡Ficha de {1} creada! Ya puedes añadir citas, historial, incidencias y anamnesis/consentimiento aquí mismo, más abajo en esta ficha.`],
+[`Não há nenhuma ficha aberta para eliminar.`,`There is no open record to delete.`,`No hay ninguna ficha abierta para eliminar.`],
+[`Tem a certeza que quer eliminar a ficha de {}? Esta ação não pode ser desfeita.`,`Are you sure you want to delete {1}'s record? This action cannot be undone.`,`¿Seguro que quieres eliminar la ficha de {1}? Esta acción no se puede deshacer.`],
+[`Não foi possível eliminar a ficha. Tenta fechar e voltar a abrir a aplicação, e tenta novamente.`,`Could not delete the record. Try closing and reopening the app, then try again.`,`No se pudo eliminar la ficha. Intenta cerrar y volver a abrir la aplicación, y vuelve a intentarlo.`],
+[`Erro ao eliminar cliente:`,`Error deleting client:`,`Error al eliminar cliente:`],
+[`Ocorreu um erro ao eliminar a ficha:`,`An error occurred while deleting the record:`,`Ocurrió un error al eliminar la ficha:`],
+[`A imagem é demasiado grande para guardar. Tenta uma foto mais pequena.`,`The image is too large to save. Try a smaller photo.`,`La imagen es demasiado grande para guardar. Prueba con una foto más pequeña.`],
+[`Repor o logótipo predefinido da aplicação?`,`Reset the app's default logo?`,`¿Restablecer el logotipo predeterminado de la aplicación?`],
+[`Recém-nascido(a)`,`Newborn`,`Recién nacido/a`],
+
+// ===== Mensagens de confirmação / aniversário (Definições) =====
+[`Escreve o texto da mensagem antes de guardar.`,`Write the message text before saving.`,`Escribe el texto del mensaje antes de guardar.`],
+[`Mensagem guardada! Já é esta que vai ser usada em todos os lembretes.`,`Message saved! This is now the one used in all reminders.`,`¡Mensaje guardado! Este es el que se usará en todos los recordatorios.`],
+[`Mensagem guardada! Já é esta que vai ser usada nos avisos de aniversário.`,`Message saved! This is now the one used for birthday greetings.`,`¡Mensaje guardado! Este es el que se usará en los avisos de cumpleaños.`],
+[`Repor a mensagem predefinida? A tua personalização atual é substituída.`,`Reset the default message? Your current customization will be replaced.`,`¿Restablecer el mensaje predeterminado? Tu personalización actual se sustituirá.`],
+[`Repor mensagem predefinida`,`Reset default message`,`Restablecer mensaje predeterminado`],
+[`Este é o texto usado sempre que tocas no botão de WhatsApp para confirmar uma marcação. Usa estas variáveis onde quiseres — a app substitui-as automaticamente pelos dados de cada ficha, sem nunca escreveres um nome fixo:`,`This is the text used whenever you tap the WhatsApp button to confirm an appointment. Use these variables wherever you like — the app replaces them automatically with each record's details, so you never have to write a fixed name:`,`Este es el texto que se usa cada vez que tocas el botón de WhatsApp para confirmar una cita. Usa estas variables donde quieras: la app las sustituye automáticamente por los datos de cada ficha, sin que tengas que escribir un nombre fijo:`],
+[`No dia do aniversário de um cliente (data de nascimento preenchida na ficha), aparece um aviso na Agenda com um botão para enviares logo esta mensagem por WhatsApp. Usa estas variáveis onde quiseres:`,`On a client's birthday (date of birth filled in on the record), a notice appears in the Calendar with a button to send this message via WhatsApp right away. Use these variables wherever you like:`,`El día del cumpleaños de un cliente (fecha de nacimiento rellenada en la ficha), aparece un aviso en la Agenda con un botón para enviar este mensaje por WhatsApp al instante. Usa estas variables donde quieras:`],
+[`— nome do animal/cliente na ficha ·`,`— name of the pet/client on the record ·`,`— nombre de la mascota/cliente en la ficha ·`],
+[`— nome com "do"/"da"/"de" à frente, já certo consoante o sexo definido na ficha (ex: "do Bobby", "da Maria", "de Fluffy") ·`,`— the name with the right possessive form for the sex set on the record (e.g. "Bobby" or "Maria"; in Portuguese: "do Bobby", "da Maria", "de Fluffy") ·`,`— el nombre con "de" delante (ej: "de Bobby", "de Maria") ·`],
+[`— nome com "do"/"da"/"de" à frente, já certo consoante o sexo definido na ficha ·`,`— the name with the right form for the sex set on the record ·`,`— el nombre con "de" delante ·`],
+[`— primeiro nome de quem cumprimentar ·`,`— first name of the person to greet ·`,`— nombre de pila de a quién saludar ·`],
+[`— primeiro nome de quem cumprimentar.`,`— first name of the person to greet.`,`— nombre de pila de a quién saludar.`],
+[`— data e hora da marcação.`,`— date and time of the appointment.`,`— fecha y hora de la cita.`],
+[`Texto da mensagem`,`Message text`,`Texto del mensaje`],
+[`Pré-visualização`,`Preview`,`Vista previa`],
+[`Guardar mensagem`,`Save message`,`Guardar mensaje`],
+[`Sem marcações futuras agendadas.`,`No future appointments scheduled.`,`Sin citas futuras programadas.`],
+
+// ===== Definições =====
+[`Definições`,`Settings`,`Ajustes`],
+[`‹ Definições`,`‹ Settings`,`‹ Ajustes`],
+[`⚙️ Definições`,`⚙️ Settings`,`⚙️ Ajustes`],
+[`Definições de aparência`,`Appearance settings`,`Ajustes de apariencia`],
+[`Tipo de negócio`,`Business type`,`Tipo de negocio`],
+[`Personalizar campos`,`Customize fields`,`Personalizar campos`],
+[`Adapta os nomes dos campos ao teu negócio`,`Adapt field names to your business`,`Adapta los nombres de los campos a tu negocio`],
+[`🌐 Idioma`,`🌐 Language`,`🌐 Idioma`],
+[`🌐 Idioma / Language`,`🌐 Language`,`🌐 Idioma`],
+[`Isto traduz os separadores, o menu de Definições e os ecrãs de boas-vindas (e, no nicho de Grooming, também os campos e mensagens). Cada região já vem com uma moeda sugerida — mas podes sempre mudar a moeda à parte, em "💰 Moeda", sem mexer na língua.`,`This translates the tabs, the Settings menu, the welcome screens and the fields and messages of every business type. Each region comes with a suggested currency — but you can always change the currency separately, under "💰 Currency", without touching the language.`,`Esto traduce las pestañas, el menú de Ajustes, las pantallas de bienvenida y los campos y mensajes de cada tipo de negocio. Cada región ya trae una moneda sugerida, pero siempre puedes cambiar la moneda aparte, en "💰 Moneda", sin tocar el idioma.`],
+[`Moeda atual`,`Current currency`,`Moneda actual`],
+[`‹ Idioma`,`‹ Language`,`‹ Idioma`],
+[`💰 Moeda`,`💰 Currency`,`💰 Moneda`],
+[`Usada em todos os preços, pagamentos e relatórios financeiros da app. Independente da língua — podes mudar isto a qualquer momento.`,`Used for all prices, payments and financial reports in the app. Independent of the language — you can change this at any time.`,`Se usa en todos los precios, pagos e informes financieros de la app. Independiente del idioma: puedes cambiarlo en cualquier momento.`],
+[`Dólar americano ($)`,`US Dollar ($)`,`Dólar estadounidense ($)`],
+[`Libra esterlina (£)`,`British Pound (£)`,`Libra esterlina (£)`],
+[`Real brasileiro (R$)`,`Brazilian Real (R$)`,`Real brasileño (R$)`],
+[`Peso mexicano ($)`,`Mexican Peso ($)`,`Peso mexicano ($)`],
+[`💬 Mensagem de confirmação`,`💬 Confirmation message`,`💬 Mensaje de confirmación`],
+[`Mensagem de confirmação`,`Confirmation message`,`Mensaje de confirmación`],
+[`Personaliza o texto enviado por WhatsApp`,`Customize the text sent via WhatsApp`,`Personaliza el texto enviado por WhatsApp`],
+[`🎂 Mensagem de aniversário`,`🎂 Birthday message`,`🎂 Mensaje de cumpleaños`],
+[`Mensagem de aniversário`,`Birthday message`,`Mensaje de cumpleaños`],
+[`Personaliza os parabéns enviados por WhatsApp`,`Customize the birthday greeting sent via WhatsApp`,`Personaliza la felicitación enviada por WhatsApp`],
+[`📝 Personalizar campos`,`📝 Customize fields`,`📝 Personalizar campos`],
+[`Adapta os nomes usados na ficha de cliente ao teu tipo de negócio específico. Estas alterações aplicam-se em toda a app (ficha, agenda, relatórios).`,`Adapt the names used on the client record to your specific type of business. These changes apply across the whole app (record, calendar, reports).`,`Adapta los nombres usados en la ficha de cliente a tu tipo de negocio concreto. Estos cambios se aplican en toda la app (ficha, agenda, informes).`],
+[`Palavra para "cliente" (ex: cliente, paciente, aluno...)`,`Word for "client" (e.g. client, patient, student...)`,`Palabra para "cliente" (ej: cliente, paciente, alumno...)`],
+[`Título da secção principal da ficha`,`Title of the main section of the record`,`Título de la sección principal de la ficha`],
+[`Nome do campo "Pedidos habituais"`,`Name of the "Usual requests" field`,`Nombre del campo "Pedidos habituales"`],
+[`Nome do campo "Comportamento / Notas"`,`Name of the "Behavior / Notes" field`,`Nombre del campo "Comportamiento / Notas"`],
+[`Nome da secção "Contacto / Tutor"`,`Name of the "Contact / Owner" section`,`Nombre de la sección "Contacto / Dueño/a"`],
+[`Nome do separador "Histórico"`,`Name of the "History" tab`,`Nombre de la pestaña "Historial"`],
+[`Nome usado para "Groomer" (quem presta o serviço)`,`Name used for "Professional" (who provides the service)`,`Nombre usado para "Profesional" (quien presta el servicio)`],
+[`Campos a mostrar na ficha`,`Fields to show on the record`,`Campos a mostrar en la ficha`],
+[`Mostrar campo "Raça"`,`Show "Breed" field`,`Mostrar campo "Raza"`],
+[`Mostrar campo "Peso"`,`Show "Weight" field`,`Mostrar campo "Peso"`],
+[`Mostrar campo "Medicação habitual"`,`Show "Usual medication" field`,`Mostrar campo "Medicación habitual"`],
+[`Mostrar campo "Nome do tutor/contacto"`,`Show "Owner/contact name" field`,`Mostrar campo "Nombre del dueño/a/contacto"`],
+[`Guardar personalização`,`Save customization`,`Guardar personalización`],
+[`Repor predefinições`,`Reset to defaults`,`Restablecer valores predeterminados`],
+[`Ex: cliente`,`E.g. client`,`Ej: cliente`],
+[`Ex: Dados do cliente`,`E.g. Client details`,`Ej: Datos del cliente`],
+[`Ex: Contacto`,`E.g. Contact`,`Ej: Contacto`],
+[`Ex: Histórico`,`E.g. History`,`Ej: Historial`],
+[`Ex: Profissional`,`E.g. Professional`,`Ej: Profesional`],
+[`Ex: Notas`,`E.g. Notes`,`Ej: Notas`],
+[`Ex: Pedidos habituais`,`E.g. Usual requests`,`Ej: Pedidos habituales`],
+[`Dados do cliente`,`Client details`,`Datos del cliente`],
+[`Contacto`,`Contact`,`Contacto`],
+[`Histórico`,`History`,`Historial`],
+[`Profissional`,`Professional`,`Profesional`],
+[`Personalização guardada! Já está a ser aplicada em toda a app.`,`Customization saved! It's already applied across the whole app.`,`¡Personalización guardada! Ya se está aplicando en toda la app.`],
+[`Repor todos os campos para as predefinições genéricas? A tua personalização atual é substituída.`,`Reset all fields to the generic defaults? Your current customization will be replaced.`,`¿Restablecer todos los campos a los valores genéricos? Tu personalización actual se sustituirá.`],
+[`Adapta os nomes dos campos da ficha ao teu tipo de negócio (ex: "Dados do animal" vs "Dados do cliente").`,`Adapts the field names on the record to your type of business (e.g. "Pet details" vs "Client details").`,`Adapta los nombres de los campos de la ficha a tu tipo de negocio (ej: "Datos de la mascota" frente a "Datos del cliente").`],
+[`Cada nicho tem os seus próprios dados, totalmente separados`,`Each business type has its own data, completely separate`,`Cada tipo de negocio tiene sus propios datos, totalmente separados`],
+[`— clientes, agenda, pagamentos, preços, tema e sincronização com o Drive. Nada é apagado ao mudares; se voltares a este nicho mais tarde, encontras tudo como estava.`,`— clients, calendar, payments, prices, theme and Drive sync. Nothing is deleted when you switch; if you come back to this business type later, you'll find everything as it was.`,`— clientes, agenda, pagos, precios, tema y sincronización con Drive. No se borra nada al cambiar; si vuelves a este tipo de negocio más tarde, lo encontrarás todo como estaba.`],
+[`🎨 Temas`,`🎨 Themes`,`🎨 Temas`],
+[`Escolhe o estilo visual que preferes para a aplicação.`,`Choose the visual style you prefer for the app.`,`Elige el estilo visual que prefieras para la aplicación.`],
+[`Sóbrio (original)`,`Sober (original)`,`Sobrio (original)`],
+[`🎨 Personalizado — a tua cor`,`🎨 Custom — your color`,`🎨 Personalizado — tu color`],
+[`Chique — preto & dourado`,`Chic — black & gold`,`Chic — negro y dorado`],
+[`Girlie — rosa & pêssego`,`Girlie — pink & peach`,`Girlie — rosa y melocotón`],
+[`Luxo — roxo & dourado`,`Luxury — purple & gold`,`Lujo — morado y dorado`],
+[`Pastel Suave — verde-água & lavanda`,`Soft Pastel — aqua green & lavender`,`Pastel Suave — verde agua y lavanda`],
+[`🏳️‍🌈 Orgulho — arco-íris`,`🏳️‍🌈 Pride — rainbow`,`🏳️‍🌈 Orgullo — arcoíris`],
+[`Mármore Negro & Dourado`,`Black & Gold Marble`,`Mármol Negro y Dorado`],
+[`Mármore Pastel`,`Pastel Marble`,`Mármol Pastel`],
+[`🐾 Patinhas Pastel`,`🐾 Pastel Paws`,`🐾 Huellitas Pastel`],
+[`A tua cor de destaque`,`Your accent color`,`Tu color de acento`],
+[`O resto da aparência (fundo, texto, verde-petróleo assinatura) mantém-se sempre igual — só esta cor muda, para tudo continuar legível e elegante.`,`The rest of the look (background, text, signature teal) always stays the same — only this color changes, so everything stays readable and elegant.`,`El resto del aspecto (fondo, texto, verde petróleo de firma) se mantiene siempre igual: solo cambia este color, para que todo siga legible y elegante.`],
+[`💾 Cópia de segurança / vários dispositivos`,`💾 Backup / multiple devices`,`💾 Copia de seguridad / varios dispositivos`],
+[`Cópia de segurança`,`Backup`,`Copia de seguridad`],
+[`Exportar / importar dados entre dispositivos`,`Export / import data between devices`,`Exportar / importar datos entre dispositivos`],
+[`A app guarda tudo só neste aparelho. Para levares os teus dados para outro telemóvel ou tablet, ou para teres uma cópia de segurança, exporta um ficheiro aqui e guarda-o no teu Google Drive, envia-o por email para ti mesma, ou guarda-o onde preferires. Depois, no outro aparelho, importa esse mesmo ficheiro.`,`The app stores everything only on this device. To take your data to another phone or tablet, or to keep a backup, export a file here and save it to your Google Drive, email it to yourself, or store it wherever you prefer. Then, on the other device, import that same file.`,`La app guarda todo solo en este dispositivo. Para llevar tus datos a otro móvil o tablet, o para tener una copia de seguridad, exporta un archivo aquí y guárdalo en tu Google Drive, envíatelo por correo o guárdalo donde prefieras. Después, en el otro dispositivo, importa ese mismo archivo.`],
+[`⬇️ Exportar dados (criar ficheiro de cópia)`,`⬇️ Export data (create backup file)`,`⬇️ Exportar datos (crear archivo de copia)`],
+[`⬆️ Importar dados (a partir de um ficheiro)`,`⬆️ Import data (from a file)`,`⬆️ Importar datos (desde un archivo)`],
+[`⚠️ Importar um ficheiro substitui todos os dados atuais desta aplicação neste aparelho.`,`⚠️ Importing a file replaces all current data in this app on this device.`,`⚠️ Importar un archivo sustituye todos los datos actuales de esta aplicación en este dispositivo.`],
+[`Erro ao exportar dados:`,`Error exporting data:`,`Error al exportar datos:`],
+[`Não foi possível criar o ficheiro de exportação.`,`Could not create the export file.`,`No se pudo crear el archivo de exportación.`],
+[`Formato de ficheiro não reconhecido.`,`File format not recognized.`,`Formato de archivo no reconocido.`],
+[`Isto vai SUBSTITUIR todos os dados atuais desta aplicação neste aparelho pelos dados do ficheiro exportado em {}. Esta ação não pode ser desfeita. Continuar?`,`This will REPLACE all current data in this app on this device with the data from the file exported on {1}. This action cannot be undone. Continue?`,`Esto SUSTITUIRÁ todos los datos actuales de esta aplicación en este dispositivo por los datos del archivo exportado el {1}. Esta acción no se puede deshacer. ¿Continuar?`],
+[`Dados importados com sucesso! A aplicação vai recarregar.`,`Data imported successfully! The app will reload.`,`¡Datos importados con éxito! La aplicación se recargará.`],
+[`Erro ao importar dados:`,`Error importing data:`,`Error al importar datos:`],
+[`Não foi possível importar este ficheiro. Confirma que é um ficheiro de cópia de segurança válido, exportado a partir desta aplicação.`,`Could not import this file. Make sure it's a valid backup file exported from this app.`,`No se pudo importar este archivo. Comprueba que es un archivo de copia de seguridad válido, exportado desde esta aplicación.`],
+
+// ===== Sincronização Google =====
+[`🔄 Sincronização Google Drive`,`🔄 Google Drive sync`,`🔄 Sincronización con Google Drive`],
+[`Sincronização Google Drive`,`Google Drive sync`,`Sincronización con Google Drive`],
+[`Liga este aparelho à tua conta Google Drive para os dados serem partilhados automaticamente com os teus outros aparelhos (atualiza a cada 5 segundos). Os dados ficam guardados numa área privada e escondida da app, na tua conta Google — não aparecem na vista normal do Drive. Cada nicho tem os seus dados separados.`,`Connect this device to your Google Drive account so your data is shared automatically with your other devices (updates every 5 seconds). The data is stored in a private, hidden area of the app in your Google account — it doesn't appear in the normal Drive view. Each business type keeps its own data separate.`,`Conecta este dispositivo a tu cuenta de Google Drive para que los datos se compartan automáticamente con tus otros dispositivos (se actualiza cada 5 segundos). Los datos se guardan en un área privada y oculta de la app, en tu cuenta de Google; no aparecen en la vista normal de Drive. Cada tipo de negocio tiene sus datos separados.`],
+[`— cada uma é guardada como ficheiro próprio no teu Drive, para não sobrecarregar cada atualização. Podem demorar um pouco mais a aparecer no outro aparelho da primeira vez.`,`— each one is stored as its own file in your Drive, so each update isn't overloaded. They may take a little longer to appear on the other device the first time.`,`— cada una se guarda como archivo propio en tu Drive, para no sobrecargar cada actualización. Pueden tardar un poco más en aparecer en el otro dispositivo la primera vez.`],
+[`📅 Google Calendar (opcional)`,`📅 Google Calendar (optional)`,`📅 Google Calendar (opcional)`],
+[`Ativa isto se também quiseres ver, na tua Agenda, os eventos do teu Google Calendar (ex: marcações feitas por telefone que já anotaste lá). Aparecem com um tom acinzentado/tracejado e a marca "por confirmar" — tocas em ✅ para associares a um cliente (ou criar um novo) e transformar numa marcação real, ou em ✕ para dispensar. É totalmente independente da sincronização de dados acima.`,`Turn this on if you also want to see your Google Calendar events in your Calendar (e.g. appointments made by phone that you already noted there). They appear in a greyish/dashed tone with a "to be confirmed" tag — tap ✅ to link to a client (or create a new one) and turn it into a real appointment, or ✕ to dismiss. It's completely independent of the data sync above.`,`Activa esto si también quieres ver, en tu Agenda, los eventos de tu Google Calendar (ej: citas hechas por teléfono que ya anotaste allí). Aparecen con un tono grisáceo/punteado y la marca "por confirmar": toca ✅ para asociarlos a un cliente (o crear uno nuevo) y convertirlos en una cita real, o ✕ para descartarlos. Es totalmente independiente de la sincronización de datos de arriba.`],
+[`Mostrar eventos do Google Calendar na Agenda{}`,`Show Google Calendar events in the Calendar{1}`,`Mostrar eventos de Google Calendar en la Agenda{1}`],
+[`Desligar sincronização`,`Disconnect sync`,`Desconectar sincronización`],
+[`Ligar ao Google Drive`,`Connect to Google Drive`,`Conectar con Google Drive`],
+[`🧹 Limpar eventos do Google já confirmados`,`🧹 Clear Google events already confirmed`,`🧹 Borrar eventos de Google ya confirmados`],
+[`🔧 Resolução de problemas`,`🔧 Troubleshooting`,`🔧 Solución de problemas`],
+[`Se os teus aparelhos não estiverem a mostrar os mesmos clientes/marcações, usa este botão — obriga a app a procurar de novo a pasta correta de sincronização no Drive (a mais antiga), em vez de continuar a usar uma ligação guardada que possa estar errada. Faz isto em todos os aparelhos, um de cada vez.`,`If your devices aren't showing the same clients/appointments, use this button — it forces the app to renew the connection and start syncing again, instead of continuing to use a saved connection that may be wrong. Do this on every device, one at a time.`,`Si tus dispositivos no muestran los mismos clientes/citas, usa este botón: obliga a la app a renovar la conexión y empezar a sincronizar de nuevo, en lugar de seguir usando una conexión guardada que pueda ser errónea. Hazlo en todos los dispositivos, uno a uno.`],
+[`🔄 Repor ligação de sincronização`,`🔄 Reset sync connection`,`🔄 Restablecer conexión de sincronización`],
+[`Reparar sincronização`,`Repair sync`,`Reparar sincronización`],
+[`🛠️ Reparar sincronização`,`🛠️ Repair sync`,`🛠️ Reparar sincronización`],
+[`Usa isto se os aparelhos não mostrarem os mesmos dados`,`Use this if your devices don't show the same data`,`Usa esto si los dispositivos no muestran los mismos datos`],
+[`🟢 Ligado — última sincronização: {}`,`🟢 Connected — last sync: {1}`,`🟢 Conectado — última sincronización: {1}`],
+[`🟠 Ativado, mas sem sessão válida neste momento — toca em "🛠️ Reparar sincronização" abaixo ou nas Definições principais.`,`🟠 Enabled, but no valid session right now — tap "🛠️ Repair sync" below or in the main Settings.`,`🟠 Activado, pero sin sesión válida en este momento: toca "🛠️ Reparar sincronización" abajo o en los Ajustes principales.`],
+[`🟠 Erro:`,`🟠 Error:`,`🟠 Error:`],
+[`🟢 Ligado — a atualizar a cada 5s`,`🟢 Connected — updating every 5s`,`🟢 Conectado — actualizando cada 5 s`],
+[`🟠 Erro na última sincronização: {}`,`🟠 Error in the last sync: {1}`,`🟠 Error en la última sincronización: {1}`],
+[`ainda não sincronizou`,`hasn't synced yet`,`todavía no se ha sincronizado`],
+[`Isto vai procurar eventos do Google Calendar que já tenham uma marcação real criada (com a mesma data e hora) e marcá-los como tratados, para deixarem de aparecer ao lado das marcações reais. Continuar?`,`This will look for Google Calendar events that already have a real appointment created (with the same date and time) and mark them as handled, so they stop appearing next to the real appointments. Continue?`,`Esto buscará eventos de Google Calendar que ya tengan una cita real creada (con la misma fecha y hora) y los marcará como tratados, para que dejen de aparecer junto a las citas reales. ¿Continuar?`],
+[`{} evento(s) do Google já confirmados foram limpos com sucesso.`,`{1} Google event(s) already confirmed were cleared successfully.`,`{1} evento(s) de Google ya confirmados se borraron con éxito.`],
+[`Não foi encontrado nenhum evento do Google com uma marcação real correspondente (mesma data e hora).`,`No Google event was found with a matching real appointment (same date and time).`,`No se encontró ningún evento de Google con una cita real correspondiente (misma fecha y hora).`],
+[`Não foi possível concluir a limpeza:`,`Could not complete the cleanup:`,`No se pudo completar la limpieza:`],
+[`Falha ao ler o Google Calendar:`,`Failed to read Google Calendar:`,`Error al leer Google Calendar:`],
+[`A sincronização com o Google Drive ainda não está configurada nesta cópia da aplicação. É preciso criar um projeto na Google Cloud Console e colocar o Client ID no código (GOOGLE_CLIENT_ID).`,`Google Drive sync is not yet set up in this copy of the app. A project must be created in the Google Cloud Console and the Client ID added to the code (GOOGLE_CLIENT_ID).`,`La sincronización con Google Drive todavía no está configurada en esta copia de la aplicación. Hay que crear un proyecto en la Google Cloud Console y poner el Client ID en el código (GOOGLE_CLIENT_ID).`],
+[`Não foi possível carregar o serviço de login da Google. Confirma que tens internet e tenta novamente.`,`Could not load Google's sign-in service. Check your internet connection and try again.`,`No se pudo cargar el servicio de inicio de sesión de Google. Comprueba tu conexión a internet e inténtalo de nuevo.`],
+[`Não foi possível ligar ao Google Drive:`,`Could not connect to Google Drive:`,`No se pudo conectar con Google Drive:`],
+[`Ligado à conta Google, mas houve um erro a preparar a pasta de sincronização. Tenta novamente.`,`Connected to your Google account, but there was an error preparing the sync storage. Try again.`,`Conectado a la cuenta de Google, pero hubo un error al preparar el almacenamiento de sincronización. Inténtalo de nuevo.`],
+[`Desligar a sincronização com o Google Drive neste aparelho? Os dados guardados no Drive não são apagados.`,`Disconnect Google Drive sync on this device? The data stored in Drive is not deleted.`,`¿Desconectar la sincronización con Google Drive en este dispositivo? Los datos guardados en Drive no se borran.`],
+[`Liga primeiro a sincronização com o Google Drive — o Calendar usa a mesma ligação.`,`Connect Google Drive sync first — Calendar uses the same connection.`,`Conecta primero la sincronización con Google Drive: Calendar usa la misma conexión.`],
+[`Não foi possível autorizar o acesso ao Google Calendar:`,`Could not authorize access to Google Calendar:`,`No se pudo autorizar el acceso a Google Calendar:`],
+[`Biblioteca de autenticação da Google ainda não está disponível.`,`Google's authentication library is not available yet.`,`La biblioteca de autenticación de Google todavía no está disponible.`],
+[`Não foi possível renovar automaticamente a sessão do Google:`,`Could not automatically renew the Google session:`,`No se pudo renovar automáticamente la sesión de Google:`],
+[`Sessão do Google Drive expirou. Liga novamente em Definições.`,`Your Google Drive session expired. Reconnect in Settings.`,`La sesión de Google Drive ha caducado. Vuelve a conectar en Ajustes.`],
+[`Erro {} ao comunicar com o Google Drive`,`Error {1} communicating with Google Drive`,`Error {1} al comunicarse con Google Drive`],
+[`Isto vai pedir-te para autorizares outra vez o acesso ao Google Drive (pode aparecer o ecrã de login da Google), limpar a ligação a pastas guardada neste aparelho, e procurar de novo a pasta correta de sincronização. Continuar?`,`This will ask you to authorize Google Drive access again (the Google sign-in screen may appear), clear the saved connection on this device, and restart sync. Continue?`,`Esto te pedirá que autorices de nuevo el acceso a Google Drive (puede aparecer la pantalla de inicio de sesión de Google), borrará la conexión guardada en este dispositivo y reiniciará la sincronización. ¿Continuar?`],
+[`A sincronização ainda não está configurada nesta cópia da aplicação.`,`Sync is not yet set up in this copy of the app.`,`La sincronización todavía no está configurada en esta copia de la aplicación.`],
+[`Não foi possível obter uma nova autorização da Google:`,`Could not get a new authorization from Google:`,`No se pudo obtener una nueva autorización de Google:`],
+[`Ligação renovada e sincronização reiniciada. Aguarda um momento e verifica se os dados aparecem corretamente. Repete isto no(s) outro(s) aparelho(s) se ainda faltarem dados.`,`Connection renewed and sync restarted. Wait a moment and check that the data appears correctly. Repeat this on your other device(s) if data is still missing.`,`Conexión renovada y sincronización reiniciada. Espera un momento y comprueba que los datos aparecen correctamente. Repite esto en el/los otro(s) dispositivo(s) si aún faltan datos.`],
+[`Não foi possível reiniciar a sincronização:`,`Could not restart sync:`,`No se pudo reiniciar la sincronización:`],
+[`Não foi possível retomar a sincronização para este nicho:`,`Could not resume sync for this business type:`,`No se pudo reanudar la sincronización para este tipo de negocio:`],
+[`Pasta de sincronização inválida — não é seguro enviar dados agora.`,`Invalid sync storage — it's not safe to upload data right now.`,`Almacenamiento de sincronización no válido: no es seguro enviar datos ahora.`],
+[`A Google não confirmou a criação do ficheiro de sincronização deste aparelho.`,`Google did not confirm the creation of this device's sync file.`,`Google no confirmó la creación del archivo de sincronización de este dispositivo.`],
+[`Falha ao enviar imagem para o Drive:`,`Failed to upload image to Drive:`,`Error al subir la imagen a Drive:`],
+[`Erro {} ao transferir imagem do Drive`,`Error {1} downloading image from Drive`,`Error {1} al descargar la imagen de Drive`],
+[`Falha ao transferir imagem do Drive:`,`Failed to download image from Drive:`,`Error al descargar la imagen de Drive:`],
+[`Falha ao ler ficheiro remoto`,`Failed to read remote file`,`Error al leer el archivo remoto`],
+[`Erro na sincronização com o Drive:`,`Error syncing with Drive:`,`Error al sincronizar con Drive:`],
+[`Reconexão automática ao Drive falhou (normal se fizeste algum tempo desde a última vez):`,`Automatic reconnection to Drive failed (normal if some time has passed since last time):`,`Falló la reconexión automática con Drive (normal si ha pasado algún tiempo desde la última vez):`],
+[`Erro ao retomar sincronização automática:`,`Error resuming automatic sync:`,`Error al reanudar la sincronización automática:`],
+
+// ===== Escolha de profissional (mensagens de gestão) =====
+[`Eliminar este(a) {}? Os clientes que o tinham associado ficam sem {}.`,`Delete this {1}? Clients linked to them will be left without a {2}.`,`¿Eliminar este/a {1}? Los clientes asociados quedarán sin {2}.`],
+
+// ===== Paleta de cores dos profissionais =====
+[`Azul`,`Blue`,`Azul`],
+[`Verde`,`Green`,`Verde`],
+[`Vermelho`,`Red`,`Rojo`],
+[`Amarelo`,`Yellow`,`Amarillo`],
+[`Laranja`,`Orange`,`Naranja`],
+[`Violeta`,`Violet`,`Violeta`],
+[`Índigo`,`Indigo`,`Índigo`],
+[`Rosa`,`Pink`,`Rosa`],
+[`Castanho`,`Brown`,`Marrón`],
+[`Cinzento`,`Grey`,`Gris`],
+
+// ===== Valores por defeito das tabelas de preços (guardados em português) =====
+[`Tosquia completa`,`Full groom`,`Corte completo`],
+[`Tosquia higiénica`,`Hygienic trim`,`Corte higiénico`],
+[`Tosquia a tesoura`,`Scissor trim`,`Corte a tijera`],
+[`Tosquia a máquina`,`Clipper trim`,`Corte a máquina`],
+[`Banho`,`Bath`,`Baño`],
+[`Banho + escovagem`,`Bath + brushing`,`Baño + cepillado`],
+[`Desembaraçar pelo`,`Deshedding`,`Desenredar pelo`],
+[`Corte de unhas`,`Nail trim`,`Corte de uñas`],
+[`Limpeza de ouvidos`,`Ear cleaning`,`Limpieza de oídos`],
+[`Qualquer porte`,`Any size`,`Cualquier tamaño`],
+[`Pequeno (até 10kg)`,`Small (up to 10kg)`,`Pequeño (hasta 10kg)`],
+[`Médio (10–20kg)`,`Medium (10–20kg)`,`Mediano (10–20kg)`],
+[`Grande (20–30kg)`,`Large (20–30kg)`,`Grande (20–30kg)`],
+[`Gigante (+30kg)`,`Giant (30kg+)`,`Gigante (+30kg)`],
+[`Qualquer tipo`,`Any type`,`Cualquier tipo`],
+[`Curto`,`Short`,`Corto`],
+[`Médio`,`Medium`,`Medio`],
+[`Longo`,`Long`,`Largo`],
+[`Duplo / Denso`,`Double / Dense`,`Doble / Denso`],
+[`Duro (wire)`,`Wire`,`Duro (wire)`],
+[`Cacheado / Encaracolado`,`Curly`,`Rizado`],
+
+// ===== Campos de exemplo estáticos =====
+[`Ex: Champô profissional, Renda, Eletricidade...`,`E.g. Professional shampoo, Rent, Electricity...`,`Ej: Champú profesional, Alquiler, Electricidad...`],
+[`Ex: Bichon Frisé`,`E.g. Bichon Frisé`,`Ej: Bichón Frisé`],
+[`Ex: tosquia curta nas patas, deixar pelo mais comprido nas orelhas...`,`E.g. short trim on the paws, leave the fur longer on the ears...`,`Ej: corte corto en las patas, dejar el pelo más largo en las orejas...`],
+[`Ex: nervoso com o secador, tranquilo, precisa de pausas...`,`E.g. nervous with the dryer, calm, needs breaks...`,`Ej: nervioso con el secador, tranquilo, necesita pausas...`],
+[`Ex: Lâmina 7F no corpo, tesoura na cabeça, carinha de urso, comprimento médio...`,`E.g. 7F blade on the body, scissors on the head, teddy bear face, medium length...`,`Ej: Cuchilla 7F en el cuerpo, tijera en la cabeza, carita de oso, largo medio...`],
+[`Ex: Orelha esquerda já inflamada na chegada, antes de qualquer procedimento.`,`E.g. Left ear already inflamed on arrival, before any procedure.`,`Ej: Oreja izquierda ya inflamada a la llegada, antes de cualquier procedimiento.`],
+[`Ex: 123456789`,`E.g. 123456789`,`Ej: 123456789`],
+[`Ex: 912345678`,`E.g. 912345678`,`Ej: 912345678`],
+[`Ex: 8,5 kg`,`E.g. 8.5 kg`,`Ej: 8,5 kg`],
+[`Ex: 3 anos`,`E.g. 3 years`,`Ej: 3 años`],
+[`Ex: pulgas, agressivo, morde durante a secagem...`,`E.g. fleas, aggressive, bites during drying...`,`Ej: pulgas, agresivo, muerde durante el secado...`],
+[`Ex: tosquia completa + banho`,`E.g. full groom + bath`,`Ej: corte completo + baño`],
+[`Ex: Doggy Style Grooming`,`E.g. Doggy Style Grooming`,`Ej: Doggy Style Grooming`],
+[`Ex: Toby`,`E.g. Toby`,`Ej: Toby`],
+[`Ex: Rita`,`E.g. Rita`,`Ej: Rita`],
+[`Ex: 2`,`E.g. 2`,`Ej: 2`],
+[`Pesquisar por nome do animal...`,`Search by pet name...`,`Buscar por nombre de la mascota...`],
+[`Escreve o nome do animal para pesquisar.`,`Type the pet's name to search.`,`Escribe el nombre de la mascota para buscar.`],
+
+// ===== Complementos (encontrados na auditoria) =====
+[`Clientes`,`Clients`,`Clientes`],
+[`Negócio`,`Business`,`Negocio`],
+[`Preços`,`Prices`,`Precios`],
+[`Groomer habitual`,`Usual professional`,`Profesional habitual`],
+[`Nome do groomer`,`Professional name`,`Nombre del profesional`],
+[`+ Adicionar groomer`,`+ Add professional`,`+ Añadir profesional`],
+[`Média do último mês com dados`,`Average of the last month with data`,`Media del último mes con datos`],
+[`— 🟢 Tem caução paga`,`— 🟢 Deposit paid`,`— 🟢 Tiene señal pagada`],
+[`· Caução paga`,`· Deposit paid`,`· Señal pagada`],
+[`Caução —`,`Deposit —`,`Señal —`],
+[`Caução — {}`,`Deposit — {1}`,`Señal — {1}`],
+[`{} · Caução — {}`,`{1} · Deposit — {2}`,`{1} · Señal — {2}`],
+[`Bem-vindo(a)!`,`Welcome!`,`¡Bienvenido(a)!`],
+[`Pedidos habituais`,`Usual requests`,`Pedidos habituales`],
+[`Comportamento`,`Behavior`,`Comportamiento`],
+[`Remover`,`Remove`,`Quitar`],
+[`Copiar NIF`,`Copy tax ID`,`Copiar NIF`],
+[`{} / unid.`,`{1} / unit`,`{1} / ud.`],
+[`· NIF:`,`· Tax ID:`,`· NIF:`],
+[`{} · NIF: {}`,`{1} · Tax ID: {2}`,`{1} · NIF: {2}`],
+[`Reabrir`,`Reopen`,`Reabrir`],
+[`Notas`,`Notes`,`Notas`],
+[`⚪ Desligado neste aparelho`,`⚪ Disconnected on this device`,`⚪ Desconectado en este dispositivo`],
+[`(liga primeiro o Drive acima)`,`(connect Drive above first)`,`(conecta primero Drive arriba)`],
+[`Desligado`,`Disconnected`,`Desconectado`],
+[`{} · Sem NIF na ficha`,`{1} · No tax ID on file`,`{1} · Sin NIF en la ficha`],
+];
+
+/*I18N_END*/
+
+// ---------- Tradutor automático da interface (inglês / espanhol) ----------
+// Traduz qualquer texto visível que esteja no dicionário I18N_ENTRIES, em tempo real,
+// sem ser preciso mexer em cada ecrã: lê o texto original em português do DOM, procura-o
+// no dicionário e substitui-o. Voltar a português restaura sempre o texto original.
+// Texto "do utilizador" (nomes, notas) nunca é traduzido: só são tocadas frases que
+// coincidem por inteiro com uma entrada do dicionário.
+
+// Regras com expressões regulares (para frases com datas/horas, que não devem ser genéricas)
+const I18N_REGEX = [
+  [/^(\d{2}\/\d{2}\/\d{4}) às (\d{1,2}:\d{2})([\s\S]*)$/, `{1} at {2}{3}`, `{1} a las {2}{3}`],
+  [/^([\s\S]+?) · (\d{2}\/\d{2}\/\d{4}) às (\d{1,2}:\d{2})$/, `{1} · {2} at {3}`, `{1} · {2} a las {3}`]
+];
+
+const I18N_EXACT = {};
+const I18N_PATTERNS = [];
+
+function i18nNorm(s){ return String(s).replace(/\s+/g, ' ').trim(); }
+function i18nEscapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+(function buildI18nIndex(){
+  for(const [pt, en, es] of I18N_ENTRIES){
+    const key = i18nNorm(pt);
+    if(key.indexOf('{}') === -1){
+      I18N_EXACT[key] = [en, es];
+    } else {
+      const re = new RegExp('^' + key.split('{}').map(i18nEscapeRe).join('([\\s\\S]*?)') + '$');
+      I18N_PATTERNS.push({ re, tpl: [en, es], len: key.length });
+    }
+  }
+  // as frases mais longas/específicas primeiro
+  I18N_PATTERNS.sort((a, b) => b.len - a.len);
+})();
+
+function i18nFillTemplate(tpl, caps, idx){
+  return tpl.replace(/\{(\d+)\}/g, (m, n) => {
+    const c = caps[Number(n) - 1];
+    if(c == null) return '';
+    // partes variáveis que sejam elas próprias frases conhecidas também se traduzem (ex: nomes de serviços)
+    const inner = i18nCore(i18nNorm(c), idx);
+    return (inner != null && c.trim() !== '') ? c.replace(i18nNorm(c), inner) : c;
+  });
+}
+
+// idx: 0 = inglês, 1 = espanhol. Devolve a tradução ou null se não houver.
+function i18nCore(text, idx){
+  if(!text) return null;
+  const hit = I18N_EXACT[text];
+  if(hit) return hit[idx];
+
+  for(const p of I18N_PATTERNS){
+    const m = text.match(p.re);
+    if(m) return i18nFillTemplate(p.tpl[idx], m.slice(1), idx);
+  }
+  for(const [re, en, es] of I18N_REGEX){
+    const m = text.match(re);
+    if(m) return i18nFillTemplate(idx === 0 ? en : es, m.slice(1), idx);
+  }
+
+  let m;
+  // "Ex: ..." (exemplos nos campos)
+  if((m = text.match(/^Ex: ([\s\S]+)$/))){
+    const rest = i18nCore(m[1], idx);
+    return (idx === 0 ? 'E.g. ' : 'Ej: ') + (rest != null ? rest : m[1]);
+  }
+  // "Qualquer coisa (3)" -> traduz a parte de texto e mantém o número
+  if((m = text.match(/^([\s\S]+?) \((\d+)\)$/))){
+    const base = i18nCore(m[1], idx);
+    if(base != null) return base + ' (' + m[2] + ')';
+  }
+  // "Erro ao fazer X: detalhe" -> traduz só o início
+  if((m = text.match(/^([^:]{3,}:) ([\s\S]+)$/))){
+    const base = I18N_EXACT[m[1]];
+    if(base) return base[idx] + ' ' + m[2];
+  }
+  return null;
+}
+
+function i18nTranslate(raw, lang){
+  if(lang !== 'en' && lang !== 'es') return null;
+  const m = String(raw).match(/^(\s*)([\s\S]*?)(\s*)$/);
+  const core = i18nNorm(m[2]);
+  if(!core) return null;
+  const out = i18nCore(core, lang === 'en' ? 0 : 1);
+  return out == null ? null : m[1] + out + m[3];
+}
+
+// Mensagens de alert()/confirm(): devolve a tradução, ou o próprio texto se não existir.
+function i18nTranslateMessage(msg, lang){
+  const out = i18nTranslate(msg, lang);
+  return out == null ? msg : out;
+}
+
+// ---------- Parte de DOM (só corre no browser) ----------
+if(typeof document !== 'undefined'){
+  const I18N_SKIP_TAGS = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, NOSCRIPT: 1 };
+  const I18N_ATTRS = ['placeholder', 'title', 'aria-label'];
+
+  function i18nSkipNode(node){
+    const el = node.nodeType === 1 ? node : node.parentElement;
+    if(!el) return true;
+    if(I18N_SKIP_TAGS[el.tagName]) return true;
+    return !!(el.closest && el.closest('[data-notr]'));
+  }
+
+  function i18nProcessText(node, lang){
+    let rec = node.__i18n;
+    if(rec && node.nodeValue !== rec.out) rec = null; // o código da app escreveu texto novo
+    const src = rec ? rec.src : node.nodeValue;
+    if(lang !== 'en' && lang !== 'es'){
+      if(rec && node.nodeValue !== rec.src) node.nodeValue = rec.src;
+      node.__i18n = null;
+      return;
+    }
+    const out = i18nTranslate(src, lang);
+    if(out != null && out !== src){
+      if(node.nodeValue !== out) node.nodeValue = out;
+      node.__i18n = { src, out };
+    } else {
+      if(rec && node.nodeValue !== src) node.nodeValue = src;
+      node.__i18n = null;
+    }
+  }
+
+  function i18nProcessAttr(el, name, lang){
+    if(!el.getAttribute) return;
+    el.__i18nAttr = el.__i18nAttr || {};
+    let rec = el.__i18nAttr[name];
+    const cur = el.getAttribute(name);
+    if(cur == null){ delete el.__i18nAttr[name]; return; }
+    if(rec && cur !== rec.out) rec = null;
+    const src = rec ? rec.src : cur;
+    if(lang !== 'en' && lang !== 'es'){
+      if(rec && cur !== rec.src) el.setAttribute(name, rec.src);
+      delete el.__i18nAttr[name];
+      return;
+    }
+    const out = i18nTranslate(src, lang);
+    if(out != null && out !== src){
+      if(cur !== out) el.setAttribute(name, out);
+      el.__i18nAttr[name] = { src, out };
+    } else {
+      if(rec && cur !== src) el.setAttribute(name, src);
+      delete el.__i18nAttr[name];
+    }
+  }
+
+  function i18nProcessSubtree(root, lang){
+    if(!root) return;
+    if(root.nodeType === 3){ if(!i18nSkipNode(root)) i18nProcessText(root, lang); return; }
+    if(root.nodeType !== 1 || i18nSkipNode(root)) return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while((n = walker.nextNode())){
+      if(!i18nSkipNode(n)) i18nProcessText(n, lang);
+    }
+    const els = [root].concat(Array.from(root.querySelectorAll('[placeholder],[title],[aria-label]')));
+    for(const el of els){
+      if(i18nSkipNode(el)) continue;
+      for(const a of I18N_ATTRS) if(el.hasAttribute(a)) i18nProcessAttr(el, a, lang);
+    }
+  }
+
+  let i18nBusy = false;
+  function i18nRefreshAll(){
+    i18nBusy = true;
+    try { i18nProcessSubtree(document.body, getCurrentLang()); }
+    finally { i18nBusy = false; }
+  }
+
+  let i18nPending = new Set();
+  let i18nScheduled = false;
+  function i18nFlush(){
+    i18nScheduled = false;
+    const lang = getCurrentLang();
+    const items = Array.from(i18nPending); i18nPending.clear();
+    if(lang !== 'en' && lang !== 'es' && !items.length) return;
+    for(const it of items){
+      if(it.t === 'tree') i18nProcessSubtree(it.n, lang);
+      else if(it.t === 'text'){ if(!i18nSkipNode(it.n)) i18nProcessText(it.n, lang); }
+      else if(it.t === 'attr'){ if(!i18nSkipNode(it.n)) i18nProcessAttr(it.n, it.a, lang); }
+    }
+  }
+  function i18nQueue(item){
+    i18nPending.add(item);
+    if(!i18nScheduled){ i18nScheduled = true; (window.requestAnimationFrame || setTimeout)(i18nFlush); }
+  }
+
+  function i18nStartObserver(){
+    const obs = new MutationObserver((muts) => {
+      const lang = getCurrentLang();
+      if(lang !== 'en' && lang !== 'es') return; // em português não há nada a traduzir
+      for(const m of muts){
+        if(m.type === 'childList'){
+          m.addedNodes.forEach(n => i18nQueue({ t: 'tree', n }));
+        } else if(m.type === 'characterData'){
+          i18nQueue({ t: 'text', n: m.target });
+        } else if(m.type === 'attributes'){
+          i18nQueue({ t: 'attr', n: m.target, a: m.attributeName });
+        }
+      }
+    });
+    obs.observe(document.documentElement, {
+      childList: true, subtree: true, characterData: true,
+      attributes: true, attributeFilter: I18N_ATTRS
+    });
+  }
+
+  // alert()/confirm() passam também pelo tradutor
+  const _alert = window.alert.bind(window);
+  const _confirm = window.confirm.bind(window);
+  window.alert = (msg) => _alert(i18nTranslateMessage(String(msg), getCurrentLang()));
+  window.confirm = (msg) => _confirm(i18nTranslateMessage(String(msg), getCurrentLang()));
+
+  window.i18nRefreshAll = i18nRefreshAll;
+  window.i18nStartObserver = i18nStartObserver;
+}
+
+
+// Liga o tradutor: traduz o que já está no ecrã e passa a acompanhar tudo o que a app desenhar.
+i18nRefreshAll();
+i18nStartObserver();
 
 // ---------- Arranque ----------
 function initApp(){
